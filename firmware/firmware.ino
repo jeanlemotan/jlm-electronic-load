@@ -1,12 +1,18 @@
 #include "ADS1115.h"
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1351.h>
+//#include <Adafruit_GFX.h>
+//#include <Fonts/FreeMonoBold9pt7b.h>
+//#include <Fonts/FreeMonoBold12pt7b.h>
+//#include <Adafruit_SSD1351.h>
+//#include "Ucglib.h"
+#include <FTOLED.h>
+#include <fonts/Droid_Sans_12.h>
 #include <Encoder.h>
 #include <SPI.h>
 #include "PWM.h"
 #include "Utils.h"
 
-static Adafruit_SSD1351 s_display = Adafruit_SSD1351(7, 5, 4);
+//static Adafruit_SSD1351 s_display = Adafruit_SSD1351(7, 5, 4);
+Ucglib_SSD1351_18x128x128_FT_HWSPI s_display(5, 7, 4);
 static Encoder s_knob(1, 8);
 static ADS1115 s_adc;
 
@@ -34,8 +40,8 @@ enum class ADCMux
 
 static ADCMux s_adcMux = ADCMux::Voltage;
 
-static float s_temperatureBias = 0.f;
-static float s_temperatureScale = 38.3f;
+static float s_temperatureBias = -0.54f;
+static float s_temperatureScale = 126.8f;
 static float s_temperatureRaw = 0.f;
 static float s_temperature = 0.f;
 
@@ -65,7 +71,7 @@ float computeVoltage(float raw)
 
 float computeTemperature(float raw)
 {
-  return raw * s_temperatureScale + s_temperatureBias;
+  return (raw + s_temperatureBias) * s_temperatureScale;
 }
 
 void readAdcs()
@@ -101,6 +107,109 @@ void readAdcs()
   s_temperature = computeTemperature(s_temperatureRaw);
 }
 
+bool isVoltageValid()
+{
+  return s_voltage > -0.1f;
+}
+
+
+enum class Measurement
+{
+  ConstantCurrent,
+  ConstantPower
+};
+
+enum class LineFlags
+{
+  Invalid = 1 << 0,
+  Selected = 1 << 1,
+  Edited = 1 << 2,
+};
+
+int drawQuantityLine(int y, uint8_t flags, float q, const char* unit)
+{
+  s_display.setColor(1, 0, 0, 0);
+  if (flags & (uint8_t)LineFlags::Invalid)
+  {
+    s_display.setColor(0, 255, 0, 0);
+  }
+  else
+  {
+    s_display.setColor(0, 255, 255, 255);
+  }
+  s_display.setFont(ucg_font_helvB14_hr);
+  int h = s_display.getFontAscent() - s_display.getFontDescent();
+  s_display.setPrintPos(0, y + s_display.getFontAscent());
+  s_display.print(q, 3);
+  s_display.setFont(ucg_font_helvB08_hr);
+  s_display.print(unit);
+  return h;
+}
+
+void processNormalSection()
+{
+  readAdcs();
+
+  static int xxx = 0;
+  xxx--;
+  s_voltage = xxx / 100.f;
+  s_current = xxx / 1000.f;
+
+  static int selection = 0;
+  selection += s_knob.read();
+
+  s_display.setFontMode(UCG_FONT_MODE_SOLID);
+
+  int y = 0;
+  int h = 0;
+
+  //Mode
+  y = 1;
+  s_display.setColor(1, 255, 255, 255);
+  s_display.setColor(0, 0, 0, 0);
+  s_display.setFont(ucg_font_helvB08_hr);
+  h = s_display.getFontAscent() - s_display.getFontDescent();
+  s_display.setPrintPos(1, y + s_display.getFontAscent());
+  s_display.print("CC Mode");
+
+  //Temperature
+  static uint32_t lastTemperatureDisplayTP = millis();
+  if (millis() > lastTemperatureDisplayTP + 1000)
+  {
+    lastTemperatureDisplayTP = millis();
+    char buffer[128];
+    sprintf(buffer, "%d'C", (int)s_temperature);
+    s_display.setFont(ucg_font_helvB08_hr);
+    int w = s_display.getStrWidth(buffer);
+    s_display.setPrintPos(s_display.getWidth() - w, y + s_display.getFontAscent());
+    s_display.print(buffer);
+  }
+  y += h + 10;
+
+  s_display.setColor(0, 255, 255, 255);
+  s_display.setColor(1, 0, 0, 0);
+
+  y += drawQuantityLine(y, 0, s_voltage, "V") + 2;
+  y += drawQuantityLine(y, 0, s_current, "A") + 2;
+  y += drawQuantityLine(y, 0, s_voltage * s_current, "W") + 2;
+
+  { 
+    s_display.setColor(1, 0, 0, 0);
+    if (selection == 3)
+    {
+      s_display.setColor(1, 64, 64, 64);
+    }
+    s_display.setColor(0, 255, 255, 255);
+    s_display.setFont(ucg_font_helvB24_hr);
+    h = s_display.getFontAscent() - s_display.getFontDescent();
+    s_display.setPrintPos(0, y + s_display.getFontAscent());
+    s_display.print(s_current, 3);
+    s_display.setFont(ucg_font_helvB08_hr);
+    s_display.print("A");
+    y += h + 2;
+  }
+}
+
 // the setup function runs once when you press reset or power the board
 void setup() 
 {
@@ -120,17 +229,28 @@ void setup()
       Serial.println("adc read trigger failed (ads1115 not connected?)");
   }
 
-  s_display.begin();
-  s_display.fillRect(0, 0, 128, 128, 0x0000);
+  s_display.begin(UCG_FONT_MODE_TRANSPARENT);
+  s_display.setColor(0, 0, 0, 0);
+  s_display.drawBox(0, 0, s_display.getWidth(), s_display.getHeight());
 
-  //analogReadResolution(12);
-  pinMode(A0, INPUT);
-  digitalWrite(A0, HIGH);
+  s_display.setFontMode(UCG_FONT_MODE_TRANSPARENT);
+  //title line
+  {
+    s_display.setFont(ucg_font_helvB08_hr);
+    int h = s_display.getFontAscent() - s_display.getFontDescent();
+    s_display.setColor(0, 255, 255, 255);
+    s_display.drawBox(0, 0, s_display.getWidth(), h + 1);
+  }
+
+  pinMode(A0, INPUT_PULLUP);
 }
 
 // the loop function runs over and over again forever
 void loop()
 {
+  processNormalSection();
+  return;
+  
   readAdcs();
   
   static uint16_t dac = 0;
@@ -200,24 +320,4 @@ void loop()
   pwm1Set9(dac);
 
   int32_t knob = s_knob.read();
-
-  static int32_t lastTP = millis();
-  if (lastTP + 100 < millis())
-  {
-    lastTP = millis();
-    char vstr[12];
-    char cstr[12];
-    char tstr[12];
-    ftoa(vstr, s_voltage, 3);
-    ftoa(cstr, s_current, 3);
-    ftoa(tstr, s_temperature, 1);
-    
-    char buffer[128];
-    sprintf(buffer, "DAC: %ld\nV: %s V\nC: %s A\nT: %s 'C", (int32_t)(dac), vstr, cstr, tstr);
-    Serial.println(buffer);
-    s_display.setTextSize(1.5);
-    s_display.setCursor(0,0);
-    s_display.setTextColor(0xF800, 0x0FF5);
-    s_display.print(buffer);
-  }
 }
