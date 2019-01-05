@@ -1,5 +1,4 @@
 #include "LabelWidget.h"
-#include "Utils.h"
 
 LabelWidget::LabelWidget(Adafruit_GFX& gfx, const char* value)
 	: m_gfx(gfx)
@@ -125,7 +124,8 @@ void LabelWidget::updateGeometry() const
 	}
 	m_dirtyFlags &= ~DirtyFlagGeometry;
 
-	int16_t x, y, w, h;
+	int16_t x, y;
+	uint16_t w, h;
 	m_gfx.setTextSize(m_textScale);
 	m_gfx.getTextBounds(m_value, 0, 0, &x, &y, &w, &h);
 	m_w = w;

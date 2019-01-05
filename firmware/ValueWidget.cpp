@@ -1,5 +1,4 @@
 #include "ValueWidget.h"
-#include "Utils.h"
 
 ValueWidget::ValueWidget(Adafruit_GFX& gfx, float value, const char* suffix)
 	: m_gfx(gfx)
@@ -135,7 +134,7 @@ void ValueWidget::setValue(float value)
 	value = max(value, m_min);
 
 	//clamp the unused decimals
-	float p[] = { 1.f, 10.f, 100.f, 1000.f, 10000.f, 100000.f, 1000000.f };
+	float p[] = { 1.f, 10.f, 100.f, 1000.f, 10000.f, 100000.f, 1000000.f, 10000000.f, 100000000.f };
 	value = (float)((long long)(value * p[m_decimals + 1] + 0.5f)) / p[m_decimals + 1];
 
 	if (m_value != value)
@@ -154,7 +153,7 @@ void ValueWidget::valueToString(char* str) const
 {
 	if (m_decimals == 0)
 	{
-		sprintf(str, "%s%ld", m_value > 0.f ? " " : "", (int32_t)m_value);
+		sprintf(str, "%s%d", m_value > 0.f ? " " : "", (int32_t)m_value);
 	}
 	else
 	{
@@ -180,7 +179,8 @@ void ValueWidget::updateGeometry() const
 
 	char str[16];
 	valueToString(str);
-	int16_t x, y, w, h;
+	int16_t x, y;
+	uint16_t w, h;
 	m_gfx.setTextSize(m_textScale);
 	m_gfx.getTextBounds(str, 0, 0, &x, &y, &w, &h);
 	m_w = w;
