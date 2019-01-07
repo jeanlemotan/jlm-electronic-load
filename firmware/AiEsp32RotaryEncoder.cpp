@@ -95,7 +95,7 @@ void AiEsp32RotaryEncoder::setBoundaries(int16_t minEncoderValue, int16_t maxEnc
 
 int16_t AiEsp32RotaryEncoder::readEncoder()
 {
-	return (this->encoder0Pos / 2);
+	return (this->encoder0Pos / 4);
 }
 
 int16_t AiEsp32RotaryEncoder::encoderChanged() {

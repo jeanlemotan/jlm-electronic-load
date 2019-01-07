@@ -2,8 +2,8 @@
 
 #include <stdint.h>
 
-constexpr uint32_t k_dacResolution = 16;
-constexpr uint32_t k_dacPrecision = 1 << k_dacResolution;
+constexpr uint32_t k_dacBits = 18;
+constexpr uint32_t k_dacPrecision = 1 << k_dacBits;
 
 
 void pwmInit();

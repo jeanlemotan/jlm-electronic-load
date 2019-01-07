@@ -12,7 +12,7 @@ enum ads1115_register {
 };
 
 #define FACTOR 32768.0
-static float ranges[] = { 6.144 / FACTOR, 4.096 / FACTOR, 2.048 / FACTOR, 1.024 / FACTOR, 0.512 / FACTOR, 0.256 / FACTOR};
+static float ranges[] = { 6.144, 4.096, 2.048, 1.024, 0.512, 0.256 };
 
 ADS1115::ADS1115(uint8_t address)
 {
@@ -85,7 +85,7 @@ int16_t ADS1115::read_sample()
 
 float ADS1115::sample_to_float(int16_t val)
 {
-	return val * ranges[m_voltage_range];
+	return (val / FACTOR) * ranges[m_voltage_range];
 }
 
 float ADS1115::read_sample_float()
