@@ -39,7 +39,7 @@ void setup()
   pwmInit();
 
   s_adc.begin();
-  s_adc.set_data_rate(ADS1115_DATA_RATE_860_SPS);
+  s_adc.set_data_rate(ADS1115_DATA_RATE_8_SPS);
   s_adc.set_mode(ADS1115_MODE_SINGLE_SHOT);
   s_adc.set_mux(ADS1115_MUX_DIFF_AIN0_AIN1); //switch to voltage pair
   s_adc.set_pga(ADS1115_PGA_SIXTEEN);
@@ -86,6 +86,8 @@ void setup()
   s_temperatureWidget.setBackgroundColor(0xFFFF);
   s_temperatureWidget.setDecimals(1);
 
+  loadSettings(s_settings);
+
   if (1 || s_knob.currentButtonState() == BUT_DOWN)
   {
     setState(State::Calibration);
@@ -94,6 +96,7 @@ void setup()
   {
     setState(State::Measurement);
   }
+
 }
 
 

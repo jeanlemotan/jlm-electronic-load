@@ -14,7 +14,7 @@ struct Settings
 	std::array<float, k_rangeCount> currentRangeBiases = {{ 0.f, 0.f, 0.f, 0.f, 0.f }};
 	std::array<float, k_rangeCount> currentRangeScales = {{ 1.f, 1.f, 1.f, 1.f, 1.f }};
 	std::array<float, k_rangeCount> voltageRangeBiases = {{ 0.f, 0.f, 0.f, 0.f, 0.f }};
-	std::array<float, k_rangeCount> voltageRangeScales = {{ 1.f, 1.f, 1.f, 1.f, 1.f }};	
+	std::array<float, k_rangeCount> voltageRangeScales = {{ 1.f, 10.f, 1.f, 1.f, 1.f }};	
 };
 
 bool loadSettings(Settings& settings);

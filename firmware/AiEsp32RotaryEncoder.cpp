@@ -107,6 +107,26 @@ int16_t AiEsp32RotaryEncoder::encoderChanged() {
 	return encoder0Diff;
 }
 
+int16_t AiEsp32RotaryEncoder::encoderChangedAcc() {
+	int16_t delta = encoderChanged();
+	if (delta != 0)
+	{
+		int32_t dt = millis() - lastAccTP;
+		dt = max(dt, 1);
+		float dtf = dt / 1000.f;
+		lastAccTP = millis();
+
+		float acc = delta / dtf;
+		int16_t d = acc * acc * 0.1f * (delta < 0 ? -1.f : 1.f);
+		if (d == 0)
+		{
+			d = delta < 0 ? -1 : 1;
+		}
+		return d;
+	}	
+	return 0;
+}
+
 void AiEsp32RotaryEncoder::setup(void (*ISR_callback)(void))
 {
 	attachInterrupt(digitalPinToInterrupt(this->encoderAPin), ISR_callback, CHANGE);

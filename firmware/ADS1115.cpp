@@ -90,5 +90,8 @@ float ADS1115::sample_to_float(int16_t val)
 
 float ADS1115::read_sample_float()
 {
-	return sample_to_float(read_sample());
+  int16_t sample = read_sample();
+  //Serial.println(sample);
+  //Serial.print(" ");
+	return sample_to_float(sample);
 }

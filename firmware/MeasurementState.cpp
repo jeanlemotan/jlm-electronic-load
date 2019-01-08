@@ -32,8 +32,8 @@ ads1115_pga s_rangePgas[Settings::k_rangeCount] = { ADS1115_PGA_SIXTEEN, ADS1115
 static uint8_t s_currentRange = 4;
 static uint8_t s_nextCurrentRange = 4;
 static bool s_isCurrentAutoRanging = true;
-static uint8_t s_voltageRange = 2;
-static uint8_t s_nextVoltageRange = 2;
+static uint8_t s_voltageRange = 4;
+static uint8_t s_nextVoltageRange = 4;
 static bool s_isVoltageAutoRanging = true;
 
 enum class ADCMux
@@ -121,6 +121,15 @@ float computeVoltage(float raw)
 {
 	float bias, scale;
 	getVoltageBiasScale(bias, scale);
+	Serial.print("raw ");
+	Serial.print(raw, 4);
+	Serial.print(", bias ");
+	Serial.print(bias, 4);
+	Serial.print(", scale ");
+	Serial.print(scale, 4);
+	Serial.print(", v ");
+	Serial.println((raw + bias) * scale);
+
 	return (raw + bias) * scale;
 }
 float getVoltage()
@@ -147,7 +156,17 @@ float getTemperatureRaw()
 
 void readAdcs()
 {
-	if (!s_adc.is_sample_in_progress() && millis() >= s_adcSampleStartedTP + 10)
+	bool voltage, current, temperature;
+	readAdcs(voltage, current, temperature);
+}
+
+void readAdcs(bool& voltage, bool& current, bool& temperature)
+{
+	voltage = false;
+	current = false;
+	temperature = false;
+
+	if (!s_adc.is_sample_in_progress() && millis() >= s_adcSampleStartedTP + 150)
 	{
 		float val = s_adc.read_sample_float();
 		if (s_adcMux == ADCMux::Voltage)
@@ -155,6 +174,7 @@ void readAdcs()
 			s_voltageRaw = val;
 			//s_voltage = (s_voltage * 90.f + computeVoltage(s_voltageRaw) * 10.f) / 100.f;
 			s_voltage = computeVoltage(s_voltageRaw);
+			voltage = true;
 
 			s_currentRange = s_nextCurrentRange;
 			s_adc.set_mux(ADS1115_MUX_DIFF_AIN2_AIN3); //switch to current pair
@@ -167,6 +187,7 @@ void readAdcs()
 			s_currentRaw = val;
 			//s_current = (s_current * 90.f + computeCurrent(s_currentRaw) * 10.f) / 100.f;
 			s_current = computeCurrent(s_currentRaw);
+			current = true;
 
 			s_voltageRange = s_nextVoltageRange;
 			s_adc.set_mux(ADS1115_MUX_DIFF_AIN0_AIN1); //switch to voltage pair
@@ -179,6 +200,7 @@ void readAdcs()
 
 	s_temperatureRaw = 1.f - (adc1_get_raw(ADC1_CHANNEL_4) / 4096.f);
 	s_temperature = (s_temperature * 99.f + computeTemperature(s_temperatureRaw) * 1.f) / 100.f;
+	temperature = true;
 }
 
 bool isVoltageValid()
@@ -196,6 +218,11 @@ enum class Measurement
 void processMeasurementState()
 {
 	readAdcs();
+
+	if (s_knob.currentButtonState() == BUT_RELEASED)
+	{
+		setVoltageRange((getVoltageRange() + 1) % Settings::k_rangeCount);
+	}
 
 	//Mode
 	s_modeWidget.setValue("CC Mode");
@@ -228,31 +255,9 @@ void processMeasurementState()
 		Serial.read();
 	}
 
-	static float adc = 0;
-	{
-		float val = s_adc.read_sample_float();
-		if (val < 0)
-		{
-			val = 0;
-		}
-		adc = (adc * 99.f + val) / 100.f;
-	}
-
-	int knobDelta = s_knob.encoderChanged();
-	if (knobDelta != 0)
-	{
-		static uint32_t lastTP = millis();
-		float dt = (millis() - lastTP) / 1000.f;
-		lastTP = millis();
-
-		int32_t d = (knobDelta / dt) * 0.05f;
-		if (d == 0)
-		{
-			d = knobDelta < 0 ? -1 : 1;
-		}
-		dac += d;
-		dac = std::max(dac, 0);
-	}
+	int knobDelta = s_knob.encoderChangedAcc();
+	dac += knobDelta;
+	dac = std::max(dac, 0);
 
 	float dacf = dac / float(k_dacPrecision);
 	setDACPWM(dacf);

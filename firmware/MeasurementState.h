@@ -2,6 +2,8 @@
 #include <stdint.h>
 
 void readAdcs();
+void readAdcs(bool& voltage, bool& current, bool& temperature);
+
 float getCurrent();
 float getCurrentRaw();
 float getVoltage();

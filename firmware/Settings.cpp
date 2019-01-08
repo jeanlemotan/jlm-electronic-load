@@ -6,7 +6,7 @@
 #include <iostream>
 #include <fstream>
 
-void saveSettings(Settings const& _settings)
+void saveSettings(Settings const& _settings) 
 {
     Settings settings = _settings;
     ESP_LOGI("Settings", "Save settings...");
@@ -28,7 +28,7 @@ void saveSettings(Settings const& _settings)
 
     std::ofstream file;
     file.open("settings");
-    if (file.bad())
+    if (!file.is_open())
     {
       ESP_LOGE("Settings", "Cannot open settings file for writing");
       return;
@@ -43,7 +43,7 @@ bool loadSettings(Settings& settings)
     ESP_LOGI("Settings", "Load settings...");
     std::ifstream file;
     file.open("settings");
-    if (file.bad())
+    if (!file.is_open())
     {
       ESP_LOGE("Settings", "Cannot open settings file for reading");
       return false;

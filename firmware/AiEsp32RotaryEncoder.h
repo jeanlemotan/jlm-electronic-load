@@ -43,6 +43,7 @@ private:
 	uint8_t old_AB;
 	int16_t lastReadEncoder0Pos;
 	bool previous_butt_state;
+	uint32_t lastAccTP = millis();
 
 	int8_t enc_states[16] = {0,-1,1,0,1,0,0,-1,-1,0,0,1,0,1,-1,0};
 	void(*ISR_callback)();
@@ -64,6 +65,7 @@ public:
 	void disable();
 	int16_t readEncoder();
 	int16_t encoderChanged();
+	int16_t encoderChangedAcc();
 	ButtonState currentButtonState();
 };
 #endif
