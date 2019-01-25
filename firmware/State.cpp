@@ -2,9 +2,8 @@
 #include "CalibrationState.h"
 #include "MeasurementState.h"
 #include "Adafruit_GFX.h"
-#include "Adafruit_SSD1351.h"
 
-extern Adafruit_SSD1351 s_display;
+extern GFXcanvas16 s_canvas;
 
 static State s_state = State::Measurement;
 static bool s_firstTime = true;
@@ -28,8 +27,6 @@ void setState(State state)
     }
   }
   s_firstTime = false;
-  s_display.fillScreen(0x0);
-  s_display.fillRect(0, 0, s_display.width(), 9, 0xFFFF);
 
   s_state = state;
   if (s_state == State::Measurement)

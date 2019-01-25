@@ -4,23 +4,18 @@
 #include "LabelWidget.h"
 #include "Settings.h"
 #include "ADS1115.h"
-#include "Adafruit_SSD1351.h"
+#include "Adafruit_GFX.h"
 #include "AiEsp32RotaryEncoder.h"
 #include "Menu.h"
 #include "State.h"
+#include "PWM.h"
 
-extern Adafruit_SSD1351 s_display;
+extern GFXcanvas16 s_canvas;
 extern AiEsp32RotaryEncoder s_knob;
 extern ADS1115 s_adc;
 extern Settings s_settings;
 
 extern LabelWidget s_modeWidget;
-static ValueWidget s_temperatureWidget(s_display, 0.f, "'C");
-static ValueWidget s_voltageWidget(s_display, 0.f, "V");
-static ValueWidget s_currentWidget(s_display, 0.f, "A");
-static ValueWidget s_powerWidget(s_display, 0.f, "W");
-static ValueWidget s_trackedWidget(s_display, 0.f, "A");
-static ValueWidget s_dacWidget(s_display, 0.f, "");
 
 enum class CalibrationItem
 {
@@ -32,14 +27,54 @@ static CalibrationItem s_calibrationItem = CalibrationItem::Voltage;
 
 static Menu s_menu;
 static size_t s_section = 0;
+
+static size_t s_type = 0; //0 - V, 1 - A, 2 - 'C
 static size_t s_range = 4;
 static float s_value = 0.f;
 static size_t s_sampleCount = 0;
-static float s_v1Vref = 5.0f;
-static float s_v1Value = 1.313f;
-static float s_v2Vref = 30.0f;
-static float s_v2Value = 3.0f;
-static Settings s_savedSettings;
+static size_t s_sampleSkipCount = 0;
+
+static float s_ref1 = 0.1f;
+static float s_ref2 = 10.0f;
+
+static std::array<float, Settings::k_rangeCount> s_savedRef1;
+static std::array<float, Settings::k_rangeCount> s_savedValue1;
+static std::array<float, Settings::k_rangeCount> s_savedRef2;
+static std::array<float, Settings::k_rangeCount> s_savedValue2;
+
+static Settings s_newSettings;
+
+const char* getUnit()
+{
+	switch (s_type)
+	{
+		case 0: return "V";
+		case 1: return "A";
+		case 2: return "'C";
+	}
+	return "N/A";
+}
+
+void refreshMenu()
+{
+	char buf[32];
+
+	sprintf(buf, "Type: %s", getUnit());
+	s_menu.setSubMenuEntry(1, buf);
+
+	sprintf(buf, "Range: %d %s", s_range, s_type == 2 ? "(locked)" : "");
+	s_menu.setSubMenuEntry(2, buf);
+	
+	sprintf(buf, "Ref1: %.3f %s", s_ref1, getUnit());
+	s_menu.setSubMenuEntry(3, buf);
+	sprintf(buf, "Ref2: %.3f %s", s_ref2, getUnit());
+	s_menu.setSubMenuEntry(4, buf);
+
+	sprintf(buf, "Calibrate 1st");
+	s_menu.setSubMenuEntry(5, buf);
+	sprintf(buf, "Calibrate 2nd");
+	s_menu.setSubMenuEntry(6, buf);
+}
 
 void processCalibrationState()
 {
@@ -47,6 +82,8 @@ void processCalibrationState()
 	readAdcs(readVoltage, readCurrent, readTemperature);
 
 	readAdcs();
+
+	char buf[64];
 
 	//Mode
 	s_modeWidget.setValue("Calibration");
@@ -64,133 +101,227 @@ void processCalibrationState()
 		if (selection != size_t(-1))
 		{
 			s_section = selection;
-			s_savedSettings = s_settings;
-			if (selection == 4 || selection == 5)
+			if (selection == 5 || 
+				selection == 6)
 			{
 				s_value = 0.f;
 				s_sampleCount = 0;
+				s_sampleSkipCount = 0;
+				if (s_type == 1) //enable the load
+				{
+					setDACPWM(1.f);
+				}
 			}
 		}
 	}
-	else if (s_section == 1) //range
+	else if (s_section == 1) //type
 	{
-		int knobDelta = s_knob.encoderChangedAcc();
-		s_range += knobDelta;
-		s_range = std::min<uint32_t>(s_range, Settings::k_rangeCount);
-		char buf[32];
-		sprintf(buf, "Range: %d", s_range);
-		s_menu.setSubMenuEntry(1, buf);
+		int knobDelta = s_knob.encoderChanged();
+		s_type += knobDelta;
+		s_type %= 3;
+		refreshMenu();
+		if (s_knob.currentButtonState() == BUT_RELEASED)
+		{
+			s_section = 0;
+		}
+		s_range = 0;
+	}
+	else if (s_section == 2) //range
+	{
+		int knobDelta = s_knob.encoderChanged();
+		if (s_type == 2)
+		{
+			s_range = 0;
+		}
+		else
+		{
+			s_range += knobDelta;
+			s_range %= Settings::k_rangeCount;
+		}
+		refreshMenu();
 		if (s_knob.currentButtonState() == BUT_RELEASED)
 		{
 			setVoltageRange(s_range);
+			setCurrentRange(s_range);
 			s_section = 0;
 		}
 	}
-	else if (s_section == 2) //v1 vref
+	else if (s_section == 3) //ref1
 	{
 		int knobDelta = s_knob.encoderChangedAcc();
-		s_v1Vref += knobDelta / 1000.f;
-		s_v1Vref = std::max(s_v1Vref, 0.f);
-		char buf[32];
-		sprintf(buf, "V1 Vref: %.3f", s_v1Vref);
-		s_menu.setSubMenuEntry(2, buf);
+		s_ref1 += knobDelta / 1000.f;
+		s_ref1 = std::max(s_ref1, 0.f);
+		refreshMenu();
 		if (s_knob.currentButtonState() == BUT_RELEASED)
 		{
 			s_section = 0;
 		}
 	}
-	else if (s_section == 3) //v2 vref
+	else if (s_section == 4) //ref2
 	{
 		int knobDelta = s_knob.encoderChangedAcc();
-		s_v2Vref += knobDelta / 1000.f;
-		s_v2Vref = std::max(s_v2Vref, 0.f);
-		char buf[32];
-		sprintf(buf, "V2 Vref: %.3f", s_v2Vref);
-		s_menu.setSubMenuEntry(3, buf);
+		s_ref2 += knobDelta / 1000.f;
+		s_ref2 = std::max(s_ref2, 0.f);
+		refreshMenu();
 		if (s_knob.currentButtonState() == BUT_RELEASED)
 		{
 			s_section = 0;
 		}
 	}
-	else if (s_section == 4) //V1
+	else if (s_section == 5) //Calibration 1
 	{
 		s_menu.process(s_knob);
-		if (!isSwitchingVoltageRange() && readVoltage)
+		if (s_type == 0 && !isSwitchingVoltageRange() && readVoltage)
 		{
-			s_value += getVoltageRaw();
-			s_sampleCount++;
-			char buf[32];
-			sprintf(buf, "*** %d: %.5f", s_sampleCount, s_value / (float)s_sampleCount);
-			s_menu.setSubMenuEntry(4, buf);
+			s_sampleSkipCount++;
+			if (s_sampleSkipCount > 10)
+			{
+				s_value += getVoltageRaw();
+				s_sampleCount++;
+			}
 		}
-		if (s_sampleCount > 20)
+		else if (s_type == 1 && !isSwitchingCurrentRange() && readCurrent)
 		{
-			s_v1Value = (s_value / (float)s_sampleCount);
-			ESP_LOGI("Calibration", "V1 value for range %d: %f", s_range, s_v1Value);
-			s_value = 0.f;
-			s_sampleCount = 0;
-
-			s_menu.setSubMenuEntry(4, "V1 Calibration");
-			s_section = 0;
+			s_sampleSkipCount++;
+			if (s_sampleSkipCount > 10)
+			{
+				s_value += getCurrentRaw();
+				s_sampleCount++;
+			}
 		}
-	}
-	else if (s_section == 5) //V2
-	{
-		s_menu.process(s_knob);
-		if (!isSwitchingVoltageRange() && readVoltage)
+		if (s_sampleCount > 0)
 		{
-			s_value += getVoltageRaw();
-			s_sampleCount++;
-			char buf[32];
-			sprintf(buf, "*** %d: %.5f", s_sampleCount, s_value / (float)s_sampleCount);
+			sprintf(buf, "calibrating: %d: %.5f", s_sampleCount, s_value / (float)s_sampleCount);
 			s_menu.setSubMenuEntry(5, buf);
 		}
+		else
+		{
+			sprintf(buf, "waiting...");
+			s_menu.setSubMenuEntry(5, buf);
+		}
+
 		if (s_sampleCount > 20)
 		{
-			s_v2Value = (s_value / (float)s_sampleCount);
-			ESP_LOGI("Calibration", "V2 value for range %d: %f", s_range, s_v2Value);
+			s_savedRef1[s_range] = s_ref1;
+			s_savedValue1[s_range] = (s_value / (float)s_sampleCount);
+			ESP_LOGI("Calibration", "Value1 for range %d: %f", s_range, s_savedValue1[s_range]);
 			s_value = 0.f;
 			s_sampleCount = 0;
 
-			float scale = (s_v2Value - s_v1Value) / (s_v2Vref - s_v1Vref);
-			float bias = (s_v1Value - scale * s_v1Vref);
-			ESP_LOGI("Calibration", "Range %d bias: %f, scale: %f", s_range, bias, scale);
-
-			s_settings.voltageRangeBiases[s_range] = -bias;
-			s_settings.voltageRangeScales[s_range] = 1.f / scale;
-			saveSettings(s_settings);
-			loadSettings(s_settings);
-
-			s_menu.setSubMenuEntry(5, "V2 Calibration");
+			refreshMenu();
 			s_section = 0;
+			setDACPWM(0.f);
 		}
 	}
-	s_menu.render(s_display, 0);
+	else if (s_section == 6) //Calibration 2
+	{
+		s_menu.process(s_knob);
+		if (s_type == 0 && !isSwitchingVoltageRange() && readVoltage)
+		{
+			s_sampleSkipCount++;
+			if (s_sampleSkipCount > 10)
+			{
+				s_value += getVoltageRaw();
+				s_sampleCount++;
+			}
+		}
+		else if (s_type == 1 && !isSwitchingCurrentRange() && readCurrent)
+		{
+			s_sampleSkipCount++;
+			if (s_sampleSkipCount > 10)
+			{
+				s_value += getCurrentRaw();
+				s_sampleCount++;
+			}
+		}
+		if (s_sampleCount > 0)
+		{
+			sprintf(buf, "calibrating: %d: %.5f", s_sampleCount, s_value / (float)s_sampleCount);
+			s_menu.setSubMenuEntry(6, buf);
+		}
+		else
+		{
+			sprintf(buf, "waiting...");
+			s_menu.setSubMenuEntry(6, buf);
+		}
+		if (s_sampleCount > 20)
+		{
+			s_savedRef2[s_range] = s_ref2;
+			s_savedValue2[s_range] = (s_value / (float)s_sampleCount);
+			ESP_LOGI("Calibration", "Value2 for range %d: %f", s_range, s_savedValue2[s_range]);
+			s_value = 0.f;
+			s_sampleCount = 0;
+
+			float scale = (s_savedValue2[s_range] - s_savedValue1[s_range]) / (s_savedRef2[s_range] - s_savedRef1[s_range]);
+			float bias = (s_savedValue1[s_range] - scale * s_savedRef1[s_range]);
+			ESP_LOGI("Calibration", "Range %d bias: %f, scale: %f", s_range, bias, scale);
+
+			if (s_type == 0)
+			{
+				s_newSettings.voltageRangeBiases[s_range] = -bias;
+				s_newSettings.voltageRangeScales[s_range] = 1.f / scale;
+			}
+			else if (s_type == 1)
+			{
+				s_newSettings.currentRangeBiases[s_range] = -bias;
+				s_newSettings.currentRangeScales[s_range] = 1.f / scale;
+			}
+			else if (s_type == 2)
+			{
+				s_newSettings.temperatureBias = -bias;
+				s_newSettings.temperatureScale = 1.f / scale;
+			}
+
+			refreshMenu();
+			s_section = 0;
+			setDACPWM(0.f);
+		}
+	}
+	else if (s_section == 7) //save
+	{
+		saveSettings(s_newSettings);
+		loadSettings(s_newSettings);
+		s_settings = s_newSettings;
+	}
+	s_menu.render(s_canvas, 0);
 }
 
 void initCalibrationState()
 {
+	s_newSettings = s_settings;
+
+	s_section = 0;
+
+	s_type = 0;
+	s_range = 4;
+	s_value = 0.f;
+	s_sampleCount = 0;
+	s_sampleSkipCount = 0;
+
+	s_ref1 = 0.1f;
+	s_ref2 = 10.0f;
+
+	s_savedRef1 = { 0.5f, 0.5f, 0.5f, 0.5f, 0.5f};
+	s_savedValue1 = { 0.f, 0.f, 0.f, 0.f, 0.f };
+	s_savedRef2 = { 10.0f, 10.0f, 10.0f, 10.0f, 10.0f };
+	s_savedValue2 = { 0.f, 0.f, 0.f, 0.f, 0.f };	
 }
 
 void beginCalibrationState()
 {
 	s_section = 0;
 	s_menu.pushSubMenu({
-	                 "<-",
-	                 "Range",
-	                 "V1 Vref: 0.0000V",
-	                 "V2 Vref: 0.0000V",
-	                 "V1 Calibration",
-	                 "V2 Calibration",
+	                 /* 0 */"<-",
+					 /* 1 */"Type: V",
+	                 /* 2 */"Range",
+	                 /* 3 */"Ref1: 0.0000V",
+	                 /* 4 */"Ref2: 0.0000V",
+	                 /* 5 */"Calibration1",
+	                 /* 6 */"Calibration2",
+					 /* 7 */"Save",
 	                }, 0, 12);
 
-	char buf[32];
-	sprintf(buf, "Range: %d", s_range);
-	s_menu.setSubMenuEntry(1, buf);
-	sprintf(buf, "V1 Vref: %.3f", s_v1Vref);
-	s_menu.setSubMenuEntry(2, buf);
-	sprintf(buf, "V2 Vref: %.3f", s_v2Vref);
-	s_menu.setSubMenuEntry(3, buf);
+	refreshMenu();
 }
 
 void endCalibrationState()

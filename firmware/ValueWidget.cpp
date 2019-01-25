@@ -87,7 +87,7 @@ void ValueWidget::update()
 {
 	if ((m_dirtyFlags & DirtyFlagRender) == 0)
 	{
-		return;
+		//return;
 	}
 	m_dirtyFlags &= ~DirtyFlagRender;
 

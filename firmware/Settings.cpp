@@ -27,7 +27,7 @@ void saveSettings(Settings const& _settings)
     settings.crc = crc;
 
     std::ofstream file;
-    file.open("settings");
+    file.open("/spiffs/settings");
     if (!file.is_open())
     {
       ESP_LOGE("Settings", "Cannot open settings file for writing");
@@ -42,7 +42,7 @@ bool loadSettings(Settings& settings)
 {
     ESP_LOGI("Settings", "Load settings...");
     std::ifstream file;
-    file.open("settings");
+    file.open("/spiffs/settings");
     if (!file.is_open())
     {
       ESP_LOGE("Settings", "Cannot open settings file for reading");

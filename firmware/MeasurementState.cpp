@@ -3,23 +3,23 @@
 #include "LabelWidget.h"
 #include "Settings.h"
 #include "ADS1115.h"
-#include "Adafruit_SSD1351.h"
+#include "Adafruit_GFX.h"
 #include "AiEsp32RotaryEncoder.h"
 #include "PWM.h"
 #include <driver/adc.h>
 
 
-extern Adafruit_SSD1351 s_display;
+extern GFXcanvas16 s_canvas;
 extern AiEsp32RotaryEncoder s_knob;
 extern ADS1115 s_adc;
 extern Settings s_settings;
 
 extern LabelWidget s_modeWidget;
-static ValueWidget s_voltageWidget(s_display, 0.f, "V");
-static ValueWidget s_currentWidget(s_display, 0.f, "A");
-static ValueWidget s_powerWidget(s_display, 0.f, "W");
-static ValueWidget s_trackedWidget(s_display, 0.f, "A");
-static ValueWidget s_dacWidget(s_display, 0.f, "");
+static ValueWidget s_voltageWidget(s_canvas, 0.f, "V");
+static ValueWidget s_currentWidget(s_canvas, 0.f, "A");
+static ValueWidget s_powerWidget(s_canvas, 0.f, "W");
+static ValueWidget s_trackedWidget(s_canvas, 0.f, "A");
+static ValueWidget s_dacWidget(s_canvas, 0.f, "");
 
 static float s_currentRaw = 0.f;
 static float s_voltageRaw = 0.f;
@@ -101,6 +101,14 @@ float computeCurrent(float raw)
 {
 	float bias, scale;
 	getCurrentBiasScale(bias, scale);
+	Serial.print("raw ");
+	Serial.print(raw, 4);
+	Serial.print(", bias ");
+	Serial.print(bias, 4);
+	Serial.print(", scale ");
+	Serial.print(scale, 4);
+	Serial.print(", v ");
+	Serial.println((raw + bias) * scale);
 	return (raw + bias) * scale;
 }
 float getCurrent()
@@ -121,15 +129,6 @@ float computeVoltage(float raw)
 {
 	float bias, scale;
 	getVoltageBiasScale(bias, scale);
-	Serial.print("raw ");
-	Serial.print(raw, 4);
-	Serial.print(", bias ");
-	Serial.print(bias, 4);
-	Serial.print(", scale ");
-	Serial.print(scale, 4);
-	Serial.print(", v ");
-	Serial.println((raw + bias) * scale);
-
 	return (raw + bias) * scale;
 }
 float getVoltage()
@@ -172,12 +171,11 @@ void readAdcs(bool& voltage, bool& current, bool& temperature)
 		if (s_adcMux == ADCMux::Voltage)
 		{
 			s_voltageRaw = val;
-			//s_voltage = (s_voltage * 90.f + computeVoltage(s_voltageRaw) * 10.f) / 100.f;
 			s_voltage = computeVoltage(s_voltageRaw);
 			voltage = true;
 
 			s_currentRange = s_nextCurrentRange;
-			s_adc.set_mux(ADS1115_MUX_DIFF_AIN2_AIN3); //switch to current pair
+			s_adc.set_mux(ADS1115_MUX_GND_AIN2); //switch to current pair
 			s_adc.set_pga(s_rangePgas[s_currentRange]);
 			s_adc.trigger_sample();
 			s_adcMux = ADCMux::Current;
@@ -185,7 +183,6 @@ void readAdcs(bool& voltage, bool& current, bool& temperature)
 		else
 		{
 			s_currentRaw = val;
-			//s_current = (s_current * 90.f + computeCurrent(s_currentRaw) * 10.f) / 100.f;
 			s_current = computeCurrent(s_currentRaw);
 			current = true;
 
@@ -221,7 +218,8 @@ void processMeasurementState()
 
 	if (s_knob.currentButtonState() == BUT_RELEASED)
 	{
-		setVoltageRange((getVoltageRange() + 1) % Settings::k_rangeCount);
+		//setVoltageRange((getVoltageRange() + 1) % Settings::k_rangeCount);
+		setCurrentRange((getCurrentRange() + 1) % Settings::k_rangeCount);
 	}
 
 	//Mode
