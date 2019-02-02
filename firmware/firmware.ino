@@ -30,6 +30,11 @@ LabelWidget s_modeWidget(s_canvas, "");
 uint8_t s_selection = 0;
 
 
+IRAM_ATTR void knobISR()
+{
+  s_knob.readEncoder_ISR();
+}
+
 // the setup function runs once when you press reset or power the board
 void setup() 
 {
@@ -102,7 +107,7 @@ void setup()
   }
 
   s_knob.begin();
-  s_knob.setup([]{s_knob.readEncoder_ISR();});
+  s_knob.setup(&knobISR);
   s_knob.enable();
   s_knob.setBoundaries(-10000, 10000);
   s_knob.reset();

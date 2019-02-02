@@ -30,7 +30,8 @@ static size_t s_section = 0;
 
 static size_t s_type = 0; //0 - V, 1 - A, 2 - 'C
 static size_t s_range = 4;
-static float s_value = 0.f;
+static float s_raw = 0.f;
+static float s_total = 0.f;
 static size_t s_sampleCount = 0;
 static size_t s_sampleSkipCount = 0;
 
@@ -55,19 +56,52 @@ const char* getUnit()
 	return "N/A";
 }
 
+void readData()
+{
+	bool readVoltage, readCurrent, readTemperature;
+	readAdcs(readVoltage, readCurrent, readTemperature);
+
+	bool read = false;
+	if (s_type == 0 && !isSwitchingVoltageRange() && readVoltage)
+	{
+		read = true;
+		s_raw = getVoltageRaw();
+	}
+	else if (s_type == 1 && !isSwitchingCurrentRange() && readCurrent)
+	{
+		read = true;
+		s_raw = getCurrentRaw();
+	}
+	else if (s_type == 2 && readTemperature)
+	{
+		read = true;
+		s_raw = getTemperatureRaw();
+	}
+
+	if (read)
+	{
+		s_sampleSkipCount++;
+		if (s_sampleSkipCount > 10)
+		{
+			s_total += s_raw;
+			s_sampleCount++;
+		}
+	}
+}
+
 void refreshMenu()
 {
 	char buf[32];
 
-	sprintf(buf, "Type: %s", getUnit());
+	sprintf(buf, "Sensor: %.5f %s", s_raw, getUnit());
 	s_menu.setSubMenuEntry(1, buf);
 
 	sprintf(buf, "Range: %d %s", s_range, s_type == 2 ? "(locked)" : "");
 	s_menu.setSubMenuEntry(2, buf);
 	
-	sprintf(buf, "Ref1: %.3f %s", s_ref1, getUnit());
+	sprintf(buf, "Ref1: %.4f %s", s_ref1, getUnit());
 	s_menu.setSubMenuEntry(3, buf);
-	sprintf(buf, "Ref2: %.3f %s", s_ref2, getUnit());
+	sprintf(buf, "Ref2: %.4f %s", s_ref2, getUnit());
 	s_menu.setSubMenuEntry(4, buf);
 
 	sprintf(buf, "Calibrate 1st");
@@ -78,11 +112,6 @@ void refreshMenu()
 
 void processCalibrationState()
 {
-	bool readVoltage, readCurrent, readTemperature;
-	readAdcs(readVoltage, readCurrent, readTemperature);
-
-	readAdcs();
-
 	char buf[64];
 
 	//Mode
@@ -91,6 +120,9 @@ void processCalibrationState()
 
 	if (s_section == 0)
 	{
+		readData();
+		refreshMenu();
+
 		size_t selection = s_menu.process(s_knob);
 
 		if (selection == 0)
@@ -104,7 +136,7 @@ void processCalibrationState()
 			if (selection == 5 || 
 				selection == 6)
 			{
-				s_value = 0.f;
+				s_total = 0.f;
 				s_sampleCount = 0;
 				s_sampleSkipCount = 0;
 				if (s_type == 1) //enable the load
@@ -119,6 +151,7 @@ void processCalibrationState()
 		int knobDelta = s_knob.encoderChanged();
 		s_type += knobDelta;
 		s_type %= 3;
+		readData();
 		refreshMenu();
 		if (s_knob.currentButtonState() == BUT_RELEASED)
 		{
@@ -138,19 +171,21 @@ void processCalibrationState()
 			s_range += knobDelta;
 			s_range %= Settings::k_rangeCount;
 		}
-		refreshMenu();
 		if (s_knob.currentButtonState() == BUT_RELEASED)
 		{
 			setVoltageRange(s_range);
 			setCurrentRange(s_range);
 			s_section = 0;
 		}
+		readData();
+		refreshMenu();
 	}
 	else if (s_section == 3) //ref1
 	{
 		int knobDelta = s_knob.encoderChangedAcc();
-		s_ref1 += knobDelta / 1000.f;
+		s_ref1 += knobDelta / 10000.f;
 		s_ref1 = std::max(s_ref1, 0.f);
+		readData();
 		refreshMenu();
 		if (s_knob.currentButtonState() == BUT_RELEASED)
 		{
@@ -160,8 +195,9 @@ void processCalibrationState()
 	else if (s_section == 4) //ref2
 	{
 		int knobDelta = s_knob.encoderChangedAcc();
-		s_ref2 += knobDelta / 1000.f;
+		s_ref2 += knobDelta / 10000.f;
 		s_ref2 = std::max(s_ref2, 0.f);
+		readData();
 		refreshMenu();
 		if (s_knob.currentButtonState() == BUT_RELEASED)
 		{
@@ -171,41 +207,24 @@ void processCalibrationState()
 	else if (s_section == 5) //Calibration 1
 	{
 		s_menu.process(s_knob);
-		if (s_type == 0 && !isSwitchingVoltageRange() && readVoltage)
-		{
-			s_sampleSkipCount++;
-			if (s_sampleSkipCount > 10)
-			{
-				s_value += getVoltageRaw();
-				s_sampleCount++;
-			}
-		}
-		else if (s_type == 1 && !isSwitchingCurrentRange() && readCurrent)
-		{
-			s_sampleSkipCount++;
-			if (s_sampleSkipCount > 10)
-			{
-				s_value += getCurrentRaw();
-				s_sampleCount++;
-			}
-		}
+		readData();
 		if (s_sampleCount > 0)
 		{
-			sprintf(buf, "calibrating: %d: %.5f", s_sampleCount, s_value / (float)s_sampleCount);
+			sprintf(buf, "*** %d: %.5f", s_sampleCount, s_total / (float)s_sampleCount);
 			s_menu.setSubMenuEntry(5, buf);
 		}
 		else
 		{
-			sprintf(buf, "waiting...");
+			sprintf(buf, "Waiting...");
 			s_menu.setSubMenuEntry(5, buf);
 		}
 
 		if (s_sampleCount > 20)
 		{
 			s_savedRef1[s_range] = s_ref1;
-			s_savedValue1[s_range] = (s_value / (float)s_sampleCount);
+			s_savedValue1[s_range] = (s_total / (float)s_sampleCount);
 			ESP_LOGI("Calibration", "Value1 for range %d: %f", s_range, s_savedValue1[s_range]);
-			s_value = 0.f;
+			s_total = 0.f;
 			s_sampleCount = 0;
 
 			refreshMenu();
@@ -216,40 +235,23 @@ void processCalibrationState()
 	else if (s_section == 6) //Calibration 2
 	{
 		s_menu.process(s_knob);
-		if (s_type == 0 && !isSwitchingVoltageRange() && readVoltage)
-		{
-			s_sampleSkipCount++;
-			if (s_sampleSkipCount > 10)
-			{
-				s_value += getVoltageRaw();
-				s_sampleCount++;
-			}
-		}
-		else if (s_type == 1 && !isSwitchingCurrentRange() && readCurrent)
-		{
-			s_sampleSkipCount++;
-			if (s_sampleSkipCount > 10)
-			{
-				s_value += getCurrentRaw();
-				s_sampleCount++;
-			}
-		}
+		readData();
 		if (s_sampleCount > 0)
 		{
-			sprintf(buf, "calibrating: %d: %.5f", s_sampleCount, s_value / (float)s_sampleCount);
+			sprintf(buf, "*** %d: %.5f", s_sampleCount, s_total / (float)s_sampleCount);
 			s_menu.setSubMenuEntry(6, buf);
 		}
 		else
 		{
-			sprintf(buf, "waiting...");
+			sprintf(buf, "Waiting...");
 			s_menu.setSubMenuEntry(6, buf);
 		}
 		if (s_sampleCount > 20)
 		{
 			s_savedRef2[s_range] = s_ref2;
-			s_savedValue2[s_range] = (s_value / (float)s_sampleCount);
+			s_savedValue2[s_range] = (s_total / (float)s_sampleCount);
 			ESP_LOGI("Calibration", "Value2 for range %d: %f", s_range, s_savedValue2[s_range]);
-			s_value = 0.f;
+			s_total = 0.f;
 			s_sampleCount = 0;
 
 			float scale = (s_savedValue2[s_range] - s_savedValue1[s_range]) / (s_savedRef2[s_range] - s_savedRef1[s_range]);
@@ -282,19 +284,22 @@ void processCalibrationState()
 		saveSettings(s_newSettings);
 		loadSettings(s_newSettings);
 		s_settings = s_newSettings;
+		s_section = 0;
 	}
 	s_menu.render(s_canvas, 0);
 }
 
 void initCalibrationState()
 {
-	s_newSettings = s_settings;
+}
 
-	s_section = 0;
+void beginCalibrationState()
+{
+	s_newSettings = s_settings;
 
 	s_type = 0;
 	s_range = 4;
-	s_value = 0.f;
+	s_total = 0.f;
 	s_sampleCount = 0;
 	s_sampleSkipCount = 0;
 
@@ -305,10 +310,7 @@ void initCalibrationState()
 	s_savedValue1 = { 0.f, 0.f, 0.f, 0.f, 0.f };
 	s_savedRef2 = { 10.0f, 10.0f, 10.0f, 10.0f, 10.0f };
 	s_savedValue2 = { 0.f, 0.f, 0.f, 0.f, 0.f };	
-}
 
-void beginCalibrationState()
-{
 	s_section = 0;
 	s_menu.pushSubMenu({
 	                 /* 0 */"<-",
