@@ -2,6 +2,7 @@
 #include "Adafruit_GFX.h"
 #include "Adafruit_SSD1351.h"
 #include "AiEsp32RotaryEncoder.h"
+#include "Button.h"
 #include "esp_spiffs.h"
 #include <SPI.h>
 #include <driver/adc.h>
@@ -22,6 +23,9 @@ GFXcanvas16 s_canvas(128, 128);
 AiEsp32RotaryEncoder s_knob(26, 27, 25, -1);
 ADS1115 s_adc;
 Settings s_settings;
+Button s_button(33);
+
+uint8_t k_disableDacPin = 13;
 
 static ValueWidget s_temperatureWidget(s_canvas, 0.f, "'C");
 LabelWidget s_modeWidget(s_canvas, "");
@@ -39,6 +43,8 @@ IRAM_ATTR void knobISR()
 void setup() 
 {
   Serial.begin(57600);
+
+  esp_log_level_set("*", ESP_LOG_DEBUG);
 
   esp_vfs_spiffs_conf_t conf = 
   {
@@ -106,6 +112,9 @@ void setup()
     ESP_ERROR_CHECK(gpio_pullup_en(GPIO_NUM_32));
   }
 
+  pinMode(k_disableDacPin, OUTPUT); 
+  digitalWrite(k_disableDacPin, 1);
+
   s_knob.begin();
   s_knob.setup(&knobISR);
   s_knob.enable();
@@ -133,6 +142,7 @@ void setup()
   s_temperatureWidget.setDecimals(1);
 
   loadSettings(s_settings);
+  //saveSettings(s_settings);
 
   if (1 || s_knob.currentButtonState() == BUT_DOWN)
   {

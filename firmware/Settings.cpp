@@ -6,6 +6,21 @@
 #include <iostream>
 #include <fstream>
 
+/*
+temperature bias/scale: 0.000000/126.800003
+current bias/scale 0: 0.005415/1.711373
+voltage bias/scale 0: -0.001118/9.991604
+current bias/scale 1: 0.005461/1.711530
+voltage bias/scale 1: -0.001108/9.995218
+current bias/scale 2: 0.005306/1.712632
+voltage bias/scale 2: -0.001080/9.995083
+current bias/scale 3: 0.005076/1.715677
+voltage bias/scale 3: -0.001109/9.995955
+current bias/scale 4: 0.005886/1.708356
+voltage bias/scale 4: -0.001094/9.993112
+*/
+
+
 void saveSettings(Settings const& _settings) 
 {
     Settings settings = _settings;
@@ -16,12 +31,15 @@ void saveSettings(Settings const& _settings)
 
     hashCombine(crc, *(uint32_t*)&settings.temperatureBias);
     hashCombine(crc, *(uint32_t*)&settings.temperatureScale);
+    ESP_LOGI("Settings", "temperature bias/scale: %f/%f", settings.temperatureBias, settings.temperatureScale);
     for (uint8_t i = 0; i < Settings::k_rangeCount; i++)
     {
       hashCombine(crc, *(uint32_t*)&settings.currentRangeBiases[i]);
       hashCombine(crc, *(uint32_t*)&settings.currentRangeScales[i]);
       hashCombine(crc, *(uint32_t*)&settings.voltageRangeBiases[i]);
       hashCombine(crc, *(uint32_t*)&settings.voltageRangeScales[i]);
+        ESP_LOGI("Settings", "current bias/scale %d: %f/%f", i, settings.currentRangeBiases[i], settings.currentRangeScales[i]);
+        ESP_LOGI("Settings", "voltage bias/scale %d: %f/%f", i, settings.voltageRangeBiases[i], settings.voltageRangeScales[i]);
     }
 
     settings.crc = crc;
@@ -62,13 +80,20 @@ bool loadSettings(Settings& settings)
 
     hashCombine(crc, *(uint32_t*)&settings.temperatureBias);
     hashCombine(crc, *(uint32_t*)&settings.temperatureScale);
+    ESP_LOGI("Settings", "temperature bias/scale: %f/%f", settings.temperatureBias, settings.temperatureScale);
     for (uint8_t i = 0; i < Settings::k_rangeCount; i++)
     {
     	hashCombine(crc, *(uint32_t*)&settings.currentRangeBiases[i]);
     	hashCombine(crc, *(uint32_t*)&settings.currentRangeScales[i]);
     	hashCombine(crc, *(uint32_t*)&settings.voltageRangeBiases[i]);
     	hashCombine(crc, *(uint32_t*)&settings.voltageRangeScales[i]);
-	  }
+        ESP_LOGI("Settings", "current bias/scale %d: %f/%f", i, settings.currentRangeBiases[i], settings.currentRangeScales[i]);
+        ESP_LOGI("Settings", "voltage bias/scale %d: %f/%f", i, settings.voltageRangeBiases[i], settings.voltageRangeScales[i]);
+    }
+
+//    settings.voltageRangeBiases[i] *= -1.f;
+//    settings.voltageRangeScales[i] *= -1.f;
+
 
     if (settings.crc != crc)
     {

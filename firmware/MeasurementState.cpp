@@ -6,15 +6,19 @@
 #include "Adafruit_GFX.h"
 #include "AiEsp32RotaryEncoder.h"
 #include "PWM.h"
+#include "Button.h"
 #include <driver/adc.h>
 
 
 extern GFXcanvas16 s_canvas;
 extern AiEsp32RotaryEncoder s_knob;
+extern Button s_button;
 extern ADS1115 s_adc;
 extern Settings s_settings;
+extern uint8_t k_disableDacPin;
 
 extern LabelWidget s_modeWidget;
+static LabelWidget s_rangeWidget(s_canvas, "");
 static ValueWidget s_voltageWidget(s_canvas, 0.f, "V");
 static ValueWidget s_currentWidget(s_canvas, 0.f, "A");
 static ValueWidget s_powerWidget(s_canvas, 0.f, "W");
@@ -101,7 +105,7 @@ float computeCurrent(float raw)
 {
 	float bias, scale;
 	getCurrentBiasScale(bias, scale);
-	Serial.print("raw ");
+	/*Serial.print("raw ");
 	Serial.print(raw, 4);
 	Serial.print(", bias ");
 	Serial.print(bias, 4);
@@ -109,6 +113,7 @@ float computeCurrent(float raw)
 	Serial.print(scale, 4);
 	Serial.print(", v ");
 	Serial.println((raw + bias) * scale);
+	*/
 	return (raw + bias) * scale;
 }
 float getCurrent()
@@ -218,30 +223,63 @@ void processMeasurementState()
 
 	if (s_knob.currentButtonState() == BUT_RELEASED)
 	{
-		//setVoltageRange((getVoltageRange() + 1) % Settings::k_rangeCount);
-		setCurrentRange((getCurrentRange() + 1) % Settings::k_rangeCount);
+		setVoltageRange((getVoltageRange() + 1) % Settings::k_rangeCount);
+		//setCurrentRange((getCurrentRange() + 1) % Settings::k_rangeCount);
+	}
+
+	if (s_button.state() == Button::State::RELEASED)
+	{
+		s_loadOn = !s_loadOn;
+		digitalWrite(k_disableDacPin, !s_loadOn);
+	}
+
+	//if there is no load, remove any leaking current (usually < 0.001);
+	//but don't just set it to zero - I want to see if the leak is too big
+	if (!s_loadOn && s_current < 0.002f)
+	{
+		s_current = 0;
 	}
 
 	//Mode
 	s_modeWidget.setValue("CC Mode");
 	s_modeWidget.update();
 
+	char buf[32];
+	sprintf(buf, "(V%d/A%d)", getVoltageRange(), getCurrentRange());
+	s_rangeWidget.setValue(buf);
+  	s_rangeWidget.setPosition(s_canvas.width() - s_rangeWidget.getWidth() - 2, 11);
+	s_rangeWidget.update();
+
 	s_voltageWidget.setTextColor(isVoltageValid() ? 0xFFFF : 0xF000);
 	s_voltageWidget.setValue(s_voltage);
 	s_voltageWidget.update();
 
 	s_currentWidget.setValue(s_current);
+	s_currentWidget.setTextColor(s_loadOn ? 0xF222 : 0xFFFF);
 	s_currentWidget.update();
 
-	s_powerWidget.setValue(s_voltage * s_current);
+	s_powerWidget.setValue(abs(s_voltage * s_current));
+	s_powerWidget.setTextColor(s_loadOn ? 0xF222 : 0xFFFF);
 	s_powerWidget.update();
 
 	s_trackedWidget.setValue(s_current);
 	s_trackedWidget.update();
 
-	static int32_t dac = 1100;
+	static int32_t desiredCurrent_mAh = 0;
 	if (Serial.available() > 0) 
 	{
+		char ch = Serial.peek();
+		if (ch == 'r')
+		{
+			ESP.restart();
+		}
+		if (ch == 'f')
+		{
+			Serial.read();
+			static bool fan = false;
+			fan = !fan;
+			setFanPWM(fan ? 1.f : 0.f);
+		}
 		//dac = Serial.parseInt();
 		//Serial.print("DAC = ");
 		//Serial.println(dac);
@@ -254,24 +292,33 @@ void processMeasurementState()
 	}
 
 	int knobDelta = s_knob.encoderChangedAcc();
-	dac += knobDelta;
-	dac = std::max(dac, 0);
+	desiredCurrent_mAh += knobDelta;
+	desiredCurrent_mAh = std::max(desiredCurrent_mAh, 0);
+	desiredCurrent_mAh = std::min(desiredCurrent_mAh, 5 * 1000);
 
-	float dacf = dac / float(k_dacPrecision);
-	setDACPWM(dacf);
-	s_dacWidget.setValue(dacf);
+	//setFanPWM(dac / float(k_fanPrecision));
 
+	float scale = 1.f / 0.4586f;
+	float bias = -0.0252f;
+
+	//float desiredCurrent = (dac * 3.3f / float(k_dacPrecision) + bias) * scale;
+
+	float desiredCurrent = desiredCurrent_mAh / 1000.f;
+	float dac = (desiredCurrent / scale - bias) / 3.3f;
+	setDACPWM(dac);
+
+	s_dacWidget.setValue(desiredCurrent);
 	s_dacWidget.update();
 }
 
 void initMeasurementState()
 {
   s_voltageWidget.setTextScale(1);
-  s_voltageWidget.setDecimals(6);
+  s_voltageWidget.setDecimals(3);
   s_voltageWidget.setPosition(0, 30);
 
   s_currentWidget.setTextScale(1);
-  s_currentWidget.setDecimals(6);
+  s_currentWidget.setDecimals(3);
   s_currentWidget.setPosition(s_voltageWidget.getX(), s_voltageWidget.getY() + s_voltageWidget.getHeight() + 2);
 
   s_powerWidget.setTextScale(2);
@@ -281,13 +328,14 @@ void initMeasurementState()
   s_trackedWidget.setPosition(s_powerWidget.getX(), s_powerWidget.getY() + s_powerWidget.getHeight() + 2);
 
   s_dacWidget.setTextScale(2);
-  s_dacWidget.setDecimals(5);
+  s_dacWidget.setDecimals(3);
   s_dacWidget.setPosition(s_trackedWidget.getX(), s_trackedWidget.getY() + s_trackedWidget.getHeight() + 2);
 }
 
 void beginMeasurementState()
 {
-
+	s_loadOn = false;
+	digitalWrite(k_disableDacPin, !s_loadOn);
 }
 void endMeasurementState()
 {
