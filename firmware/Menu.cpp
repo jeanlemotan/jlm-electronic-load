@@ -21,10 +21,10 @@ void Menu::pushSubMenu(std::vector<std::string> const& entries, size_t selected,
     }
 
     //max 1 active transition
-    while (m_subMenus.size() > 1)
-    {
-        m_subMenus.erase(m_subMenus.begin());
-    }
+//    while (m_subMenus.size() > 10)
+//    {
+//        m_subMenus.erase(m_subMenus.begin());
+//    }
 
     SubMenu subMenu;
     subMenu.entries = entries;
@@ -32,6 +32,8 @@ void Menu::pushSubMenu(std::vector<std::string> const& entries, size_t selected,
     subMenu.topEntry = 0;
     subMenu.x = MENU_WIDTH * m_subMenus.size();
     subMenu.y = y;
+
+    ESP_LOGI("Menu", "Pushing submenu %d", m_subMenus.size());
 
     m_subMenus.push_back(subMenu);
     m_crtSubMenuIdx = m_subMenus.size() - 1;
@@ -47,6 +49,7 @@ void Menu::popSubMenu()
     {
         return;
     }
+    ESP_LOGI("Menu", "Popping submenu %d", m_subMenus.size() - 1);
 
     SubMenu& oldSubMenu = m_subMenus.back();
     oldSubMenu.popped = true;

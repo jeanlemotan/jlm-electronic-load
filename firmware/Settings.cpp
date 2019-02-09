@@ -34,13 +34,20 @@ void saveSettings(Settings const& _settings)
     ESP_LOGI("Settings", "temperature bias/scale: %f/%f", settings.temperatureBias, settings.temperatureScale);
     for (uint8_t i = 0; i < Settings::k_rangeCount; i++)
     {
-      hashCombine(crc, *(uint32_t*)&settings.currentRangeBiases[i]);
-      hashCombine(crc, *(uint32_t*)&settings.currentRangeScales[i]);
-      hashCombine(crc, *(uint32_t*)&settings.voltageRangeBiases[i]);
-      hashCombine(crc, *(uint32_t*)&settings.voltageRangeScales[i]);
+        hashCombine(crc, *(uint32_t*)&settings.currentRangeBiases[i]);
+        hashCombine(crc, *(uint32_t*)&settings.currentRangeScales[i]);
+        hashCombine(crc, *(uint32_t*)&settings.voltageRangeBiases[i]);
+        hashCombine(crc, *(uint32_t*)&settings.voltageRangeScales[i]);
         ESP_LOGI("Settings", "current bias/scale %d: %f/%f", i, settings.currentRangeBiases[i], settings.currentRangeScales[i]);
         ESP_LOGI("Settings", "voltage bias/scale %d: %f/%f", i, settings.voltageRangeBiases[i], settings.voltageRangeScales[i]);
     }
+    for (size_t i = 0; i < settings.dac2CurrentTable.size(); i++)
+    {
+        float v = settings.dac2CurrentTable[i];
+        hashCombine(crc, *(uint32_t*)&v);
+        ESP_LOGI("Settings", "dac2current %d: %f", i, v);
+    }
+
 
     settings.crc = crc;
 
@@ -89,6 +96,13 @@ bool loadSettings(Settings& settings)
     	hashCombine(crc, *(uint32_t*)&settings.voltageRangeScales[i]);
         ESP_LOGI("Settings", "current bias/scale %d: %f/%f", i, settings.currentRangeBiases[i], settings.currentRangeScales[i]);
         ESP_LOGI("Settings", "voltage bias/scale %d: %f/%f", i, settings.voltageRangeBiases[i], settings.voltageRangeScales[i]);
+    }
+
+    for (size_t i = 0; i < settings.dac2CurrentTable.size(); i++)
+    {
+        float v = settings.dac2CurrentTable[i];
+        hashCombine(crc, *(uint32_t*)&v);
+        ESP_LOGI("Settings", "dac2current %d: %f", i, v);
     }
 
 //    settings.voltageRangeBiases[i] *= -1.f;
