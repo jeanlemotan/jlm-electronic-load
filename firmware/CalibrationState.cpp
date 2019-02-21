@@ -48,7 +48,7 @@ static std::array<float, Settings::k_rangeCount> s_savedValue2;
 
 static Settings s_newSettings;
 
-const char* getUnit()
+static const char* getUnit()
 {
 	switch (s_menuSection)
 	{
@@ -60,7 +60,7 @@ const char* getUnit()
 	return "";
 }
 
-void readData()
+static void readData()
 {
 	bool readVoltage, readCurrent, readTemperature;
 	readAdcs(readVoltage, readCurrent, readTemperature);
@@ -93,7 +93,7 @@ void readData()
 	}
 }
 
-void refreshSubMenu()
+static void refreshSubMenu()
 {
 	char buf[32];
 
@@ -269,7 +269,7 @@ static void processDACSection()
 			else
 			{
 				float f = (float)s_dacTableIndex / (float)s_newSettings.dac2CurrentTable.size();
-				setDAC(f);// * f * f);
+				setDAC(f * f * f);
 			}
 		}
 	}

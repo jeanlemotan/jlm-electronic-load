@@ -1,7 +1,7 @@
 #pragma once
 #include <stdint.h>
 
-constexpr float k_maxCurrent = 1.f;
+constexpr float k_maxCurrent = 4.f;
 
 void readAdcs();
 void readAdcs(bool& voltage, bool& current, bool& temperature);
@@ -24,14 +24,20 @@ void setVoltageRange(uint8_t range);
 bool isVoltageAutoRanging();
 void setVoltageAutoRanging(bool enabled);
 
-void initMeasurementState();
-void beginMeasurementState();
-void endMeasurementState();
-void processMeasurementState();
-
+float getPower();
+float getEnergy();
+void resetEnergy();
 
 void setDAC(float target);
 float getDAC();
 void setTargetCurrent(float target);
 void setLoadEnabled(bool enabled);
 bool isLoadEnabled();
+bool isLoadSettled();
+
+void initMeasurementState();
+void beginMeasurementState();
+void endMeasurementState();
+void processMeasurementState();
+
+

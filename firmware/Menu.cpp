@@ -180,6 +180,7 @@ void Menu::render(Adafruit_GFX& display, SubMenu& subMenu, size_t maxEntries)
 
     display.setTextWrap(false);
 
+    display.fillRect(x, y, display.width(), maxEntries*entryH + borderH*2, 0);
     for (int16_t xx = 0; xx < display.width(); xx += 3)
     {
         display.drawPixel(x + xx, y, 0xFFFF);
