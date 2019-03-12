@@ -570,7 +570,7 @@ void processMeasurementState()
 		else while (Serial.available() > 0)
 		{
 			ch = Serial.read();
-			if (ch == '\n' || programSize >= 1023)
+			if (ch == '\n' || ch == '\r' || programSize >= 1023)
 			{
 				program[programSize] = 0;
 				compileProgram(program);
