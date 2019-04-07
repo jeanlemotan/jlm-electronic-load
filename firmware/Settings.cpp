@@ -105,10 +105,6 @@ bool loadSettings(Settings& settings)
         ESP_LOGI("Settings", "dac2current %d: %f", i, v);
     }
 
-//    settings.voltageRangeBiases[i] *= -1.f;
-//    settings.voltageRangeScales[i] *= -1.f;
-
-
     if (settings.crc != crc)
     {
         ESP_LOGE("Settings", "Crc mismatch: expected %u, got %u", crc, settings.crc);

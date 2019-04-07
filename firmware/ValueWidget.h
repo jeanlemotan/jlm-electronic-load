@@ -6,12 +6,13 @@
 class ValueWidget : public Widget
 {
 public:
-	ValueWidget(Adafruit_GFX& gfx, float value, const char* prefix);
-	void setSuffix(const char* prefix);
+	ValueWidget(Adafruit_GFX& gfx, float value, const char* suffix);
+	void setValueFont(const GFXfont* font);
+	void setSuffixFont(const GFXfont* font);
+	void setSuffix(const char* suffix);
 	void setLimits(float minLimit, float maxLimit);
 	void setDecimals(uint8_t decimals);
 	void setTextColor(uint16_t color);
-	void setBackgroundColor(uint16_t color);
 	void setTextScale(uint8_t scale);
 	void setPosition(int16_t x, int16_t y) override;
 	int16_t getX() const override;
@@ -29,6 +30,9 @@ private:
 	void valueToString(char* str) const;
 
 	Adafruit_GFX& m_gfx;
+	const GFXfont* m_valueFont = nullptr;
+	const GFXfont* m_suffixFont = nullptr;
+
 	char m_suffix[8] = { 0 };
 	enum DirtyFlags
 	{
@@ -47,5 +51,4 @@ private:
 	float m_max = 999999999.f;
 	bool m_isSelected = false;
 	uint16_t m_textColor = 0xFFFF;
-	uint16_t m_backgroundColor = 0x0;
 };

@@ -110,6 +110,12 @@ class Adafruit_GFX : public Print {
     getTextBounds(const String &str, int16_t x, int16_t y,
       int16_t *x1, int16_t *y1, uint16_t *w, uint16_t *h);
 
+    GFXfont* getFont();
+    uint16_t getTextWidth(const char* string);
+    uint16_t getTextHeight(const char* string);
+    uint16_t getCharWidth(char c, bool advance);
+    void getTextSize(const char* string, uint16_t* w, uint16_t* h);
+
 
 #if ARDUINO >= 100
   virtual size_t write(uint8_t);
@@ -207,9 +213,18 @@ class GFXcanvas8 : public Adafruit_GFX {
            fillScreen(uint16_t color),
            writeFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color);
 
-  uint8_t *getBuffer(void);
+  int16_t getDirtyX() const;
+  int16_t getDirtyY() const;
+  int16_t getDirtyWidth() const;
+  int16_t getDirtyHeight() const;
+
+  uint8_t* getBuffer(void);
  private:
-  uint8_t *buffer;
+  uint8_t* _buffer;
+  int16_t _dirtyx1 = 9999;
+  int16_t _dirtyy1 = 9999;
+  int16_t _dirtyx2 = -9999;
+  int16_t _dirtyy2 = -9999;
 };
 
 

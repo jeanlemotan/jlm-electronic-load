@@ -6,6 +6,19 @@ ValueWidget::ValueWidget(Adafruit_GFX& gfx, float value, const char* suffix)
 {
 	strcpy(m_suffix, suffix);
 }
+void ValueWidget::setValueFont(const GFXfont* font)
+{
+	m_valueFont = font;
+	m_dirtyFlags |= DirtyFlagRender;
+	m_dirtyFlags |= DirtyFlagGeometry;
+}
+void ValueWidget::setSuffixFont(const GFXfont* font)
+{
+	m_suffixFont = font;
+	m_dirtyFlags |= DirtyFlagRender;
+	m_dirtyFlags |= DirtyFlagGeometry;
+}
+
 void ValueWidget::setSuffix(const char* suffix)
 {
 	strcpy(m_suffix, suffix);
@@ -33,14 +46,6 @@ void ValueWidget::setTextColor(uint16_t color)
 	if (m_textColor != color)
 	{
 		m_textColor = color;
-		m_dirtyFlags |= DirtyFlagRender;
-	}
-}
-void ValueWidget::setBackgroundColor(uint16_t color)
-{
-	if (m_backgroundColor != color)
-	{
-		m_backgroundColor = color;
 		m_dirtyFlags |= DirtyFlagRender;
 	}
 }
@@ -85,36 +90,36 @@ int16_t ValueWidget::getY() const
 
 void ValueWidget::update()
 {
+	const GFXfont* oldFont = m_gfx.getFont();
+
 	if ((m_dirtyFlags & DirtyFlagRender) == 0)
 	{
 		//return;
 	}
 	m_dirtyFlags &= ~DirtyFlagRender;
 
-	uint16_t bg = m_backgroundColor;
-	if (m_isSelected)
-	{
-		bg = 0x2222;
-	}
-	m_gfx.setTextColor(m_textColor, bg);
+	m_gfx.setTextColor(m_textColor);
 	m_gfx.setTextSize(m_textScale);
-	m_gfx.setCursor(m_x, m_y);
+	m_gfx.setFont(m_valueFont);
+
 	char str[16];
 	valueToString(str);
+
+	int16_t x = m_x;
+	if (m_value >= 0)
+	{
+		x += m_gfx.getCharWidth('-', true);
+	}
+	//printf("X: '%s', %d, %d, %d\n", str, m_x, x, m_gfx.getTextWidth(str));
+	m_gfx.setCursor(x, m_y);
 	m_gfx.print(str);
 	if (m_suffix[0] != '\0')
 	{
-		if (m_textScale == 1)
-		{
-			m_gfx.setTextSize(1);
-		}
-		else
-		{
-			m_gfx.setTextSize(m_textScale == 1 ? 1 : m_textScale - 1);
-			m_gfx.setCursor(m_gfx.getCursorX(), m_y + 7);
-		}
+		m_gfx.setFont(m_suffixFont);
 		m_gfx.print(m_suffix);
 	}
+
+	m_gfx.setFont(oldFont);
 }
 void ValueWidget::setSelected(bool selected)
 {
@@ -153,19 +158,11 @@ void ValueWidget::valueToString(char* str) const
 {
 	if (m_decimals == 0)
 	{
-		sprintf(str, "%s%d", m_value > 0.f ? " " : "", (int32_t)m_value);
+		sprintf(str, "%d", (int32_t)m_value);
 	}
 	else
 	{
-		if (m_value >= 0.f)
-		{
-			*str = ' ';
-			dtostrf(m_value, 0, m_decimals, str + 1);
-		}
-		else
-		{
-			dtostrf(m_value, 0, m_decimals, str);
-		}
+		dtostrf(m_value, 0, m_decimals, str);
 	}
 }
 
@@ -177,18 +174,38 @@ void ValueWidget::updateGeometry() const
 	}
 	m_dirtyFlags &= ~DirtyFlagGeometry;
 
+	const GFXfont* oldFont = m_gfx.getFont();
+
 	char str[16];
-	valueToString(str);
+	if (m_value < 0)
+	{
+		valueToString(str);
+	}
+	else
+	{
+		str[0] = '-';
+		valueToString(str + 1);	
+	}
 	int16_t x, y;
 	uint16_t w, h;
 	m_gfx.setTextSize(m_textScale);
+	m_gfx.setFont(m_valueFont);
 	m_gfx.getTextBounds(str, 0, 0, &x, &y, &w, &h);
 	m_w = w;
 	m_h = h;
+	if (m_valueFont)
+	{
+		m_h = m_valueFont->yAdvance;
+	}
 	if (m_suffix[0] != '\0')
 	{
-		m_gfx.setTextSize(m_textScale == 1 ? 1 : m_textScale - 1);
+		m_gfx.setFont(m_suffixFont);
 		m_gfx.getTextBounds(m_suffix, 0, 0, &x, &y, &w, &h);
 		m_w += w;
+		if (m_suffixFont)
+		{
+			m_h = std::max<int16_t>(m_h, m_suffixFont->yAdvance);
+		}
 	}
+	m_gfx.setFont(oldFont);
 }

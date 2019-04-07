@@ -38,6 +38,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #elif defined(ESP8266) || defined(ESP32)
   #include <pgmspace.h>
 #endif
+#include <Arduino.h>
 
 // Many (but maybe not all) non-AVR board installs define macros
 // for compatibility with existing PROGMEM-reading AVR code.
@@ -975,7 +976,6 @@ void Adafruit_GFX::drawRGBBitmap(int16_t x, int16_t y,
     endWrite();
 }
 
-
 /**************************************************************************/
 /*!
    @brief   Draw a PROGMEM-resident 16-bit image (RGB 5/6/5) with a 1-bit mask (set bits = opaque, unset bits = clear) at the specified (x,y) position. BOTH buffers (color and mask) must be PROGMEM-resident. For 16-bit display devices; no color reduction performed.
@@ -1491,6 +1491,50 @@ void Adafruit_GFX::getTextBounds(const __FlashStringHelper *str,
     }
 }
 
+uint16_t Adafruit_GFX::getTextWidth(const char* string)
+{
+    int16_t x, y;
+    uint16_t w, h;
+    getTextBounds(string, 0, 0, &x, &y, &w, &h);
+    return w;
+}
+uint16_t Adafruit_GFX::getTextHeight(const char* string)
+{
+    int16_t x, y;
+    uint16_t w, h;
+    getTextBounds(string, 0, 0, &x, &y, &w, &h);
+    return h;
+}
+void Adafruit_GFX::getTextSize(const char* string, uint16_t* w, uint16_t* h)
+{
+    int16_t x, y;
+    getTextBounds(string, 0, 0, &x, &y, w, h);
+}
+
+uint16_t Adafruit_GFX::getCharWidth(char c, bool advance)
+{
+    int16_t minx = _width, miny = _height, maxx = -1, maxy = -1;
+
+    int16_t x = 0;
+    int16_t y = 0;
+    charBounds(c, &x, &y, &minx, &miny, &maxx, &maxy);
+
+    if (maxx < minx) {
+        return 0;
+    }
+
+    if (advance) {
+        return x;
+    }
+    return maxx - minx + 1;
+}
+
+GFXfont* Adafruit_GFX::getFont()
+{
+    return gfxFont;
+}
+
+
 /**************************************************************************/
 /*!
     @brief      Get width of the display, accounting for the current rotation
@@ -1790,8 +1834,8 @@ void GFXcanvas1::fillScreen(uint16_t color) {
 /**************************************************************************/
 GFXcanvas8::GFXcanvas8(uint16_t w, uint16_t h) : Adafruit_GFX(w, h) {
     uint32_t bytes = w * h;
-    if((buffer = (uint8_t *)malloc(bytes))) {
-        memset(buffer, 0, bytes);
+    if ((_buffer = (uint8_t *)malloc(bytes))) {
+        memset(_buffer, 0, bytes);
     }
 }
 
@@ -1801,7 +1845,7 @@ GFXcanvas8::GFXcanvas8(uint16_t w, uint16_t h) : Adafruit_GFX(w, h) {
 */
 /**************************************************************************/
 GFXcanvas8::~GFXcanvas8(void) {
-    if(buffer) free(buffer);
+    if (_buffer) free(_buffer);
 }
 
 
@@ -1812,7 +1856,20 @@ GFXcanvas8::~GFXcanvas8(void) {
 */
 /**************************************************************************/
 uint8_t* GFXcanvas8::getBuffer(void) {
-    return buffer;
+    return _buffer;
+}
+
+int16_t GFXcanvas8::getDirtyX() const {
+    return max(_dirtyx1, int16_t(0));
+}
+int16_t GFXcanvas8::getDirtyY() const {
+    return max(_dirtyy1, int16_t(0));
+}
+int16_t GFXcanvas8::getDirtyWidth() const {
+    return max(_dirtyx2 - _dirtyx1, 0);
+}
+int16_t GFXcanvas8::getDirtyHeight() const {
+    return max(_dirtyy2 - _dirtyy1, 0);
 }
 
 /**************************************************************************/
@@ -1824,29 +1881,30 @@ uint8_t* GFXcanvas8::getBuffer(void) {
 */
 /**************************************************************************/
 void GFXcanvas8::drawPixel(int16_t x, int16_t y, uint16_t color) {
-    if(buffer) {
-        if((x < 0) || (y < 0) || (x >= _width) || (y >= _height)) return;
+    if((x < 0) || (y < 0) || (x >= _width) || (y >= _height)) return;
 
-        int16_t t;
-        switch(rotation) {
-            case 1:
-                t = x;
-                x = WIDTH  - 1 - y;
-                y = t;
-                break;
-            case 2:
-                x = WIDTH  - 1 - x;
-                y = HEIGHT - 1 - y;
-                break;
-            case 3:
-                t = x;
-                x = y;
-                y = HEIGHT - 1 - t;
-                break;
-        }
-
-        buffer[x + y * WIDTH] = color;
+    int16_t t;
+    switch(rotation) {
+        case 1:
+            t = x;
+            x = WIDTH  - 1 - y;
+            y = t;
+            break;
+        case 2:
+            x = WIDTH  - 1 - x;
+            y = HEIGHT - 1 - y;
+            break;
+        case 3:
+            t = x;
+            x = y;
+            y = HEIGHT - 1 - t;
+            break;
     }
+    _buffer[x + y * WIDTH] = color;
+    _dirtyx1 = min(_dirtyx1, x);
+    _dirtyx2 = max(_dirtyx2, x);
+    _dirtyy1 = min(_dirtyy1, y);
+    _dirtyy2 = max(_dirtyy2, y);
 }
 
 /**************************************************************************/
@@ -1856,9 +1914,7 @@ void GFXcanvas8::drawPixel(int16_t x, int16_t y, uint16_t color) {
 */
 /**************************************************************************/
 void GFXcanvas8::fillScreen(uint16_t color) {
-    if(buffer) {
-        memset(buffer, color, WIDTH * HEIGHT);
-    }
+    memset(_buffer, color, WIDTH * HEIGHT);
 }
 
 void GFXcanvas8::writeFastHLine(int16_t x, int16_t y,
@@ -1893,7 +1949,11 @@ void GFXcanvas8::writeFastHLine(int16_t x, int16_t y,
             break;
     }
 
-    memset(buffer + y * WIDTH + x, color, w);
+    memset(_buffer + y * WIDTH + x, color, w);
+    _dirtyx1 = min(_dirtyx1, x);
+    _dirtyx2 = max(_dirtyx2, int16_t(x + w));
+    _dirtyy1 = min(_dirtyy1, y);
+    _dirtyy2 = max(_dirtyy2, y);
 }
 
 /**************************************************************************/

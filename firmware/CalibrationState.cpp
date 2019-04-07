@@ -11,6 +11,7 @@
 #include "PWM.h"
 
 extern GFXcanvas16 s_canvas;
+extern int16_t s_windowY;
 extern AiEsp32RotaryEncoder s_knob;
 extern ADS1115 s_adc;
 extern Settings s_settings;
@@ -143,18 +144,22 @@ static void processMainSection()
 		s_menuSection = MenuSection(selection);
 		s_selection = 0;
 		s_range = 0;
+		setVoltageRange(s_range);
+		setCurrentRange(s_range);	
+		setDAC(0.f);
+		setLoadEnabled(false);
 		if (s_menuSection == MenuSection::DAC)
 		{
 			s_menu.pushSubMenu({
-				                 /* 0 */"<-",
+				                 /* 0 */"Back",
 								 /* 1 */"Start",
 								 /* 2 */"Save",
-				                }, 0, 12);
+				                }, 0, s_windowY);
 		}
 		else
 		{
 			s_menu.pushSubMenu({
-				                 /* 0 */"<-",
+				                 /* 0 */"Back",
 								 /* 1 */"Raw: V",
 				                 /* 2 */"Range",
 				                 /* 3 */"Ref1: 0.0000V",
@@ -162,7 +167,7 @@ static void processMainSection()
 				                 /* 5 */"Calibration1",
 				                 /* 6 */"Calibration2",
 								 /* 7 */"Save",
-				                }, 0, 12);
+				                }, 0, s_windowY);
 		}
 	}
 	s_menu.render(s_canvas, 0);
@@ -191,10 +196,10 @@ static void processDACSection()
 		{
 			s_selection = 1;
 			s_menu.pushSubMenu({
-				                 /* 0 */"<-",
+				                 /* 0 */"Back",
 								 /* 1 */"DAC",
 								 /* 2 */"Current",
-				                }, 0, 12);
+				                }, 0, s_windowY);
 			setCurrentAutoRanging(true);
 			setDAC(0.f);
 			setLoadEnabled(false);
@@ -310,7 +315,7 @@ static void process2PointSection()
 				s_sampleSkipCount = 0;
 				if (s_menuSection == MenuSection::Current) //enable the load
 				{
-					setTargetCurrent(5.f);
+					setDAC(1.f);
 					setLoadEnabled(true);
 				}
 			}
@@ -386,7 +391,7 @@ static void process2PointSection()
 
 			refreshSubMenu();
 			s_selection = 0;
-			setTargetCurrent(0.f);
+			setDAC(0.f);
 			setLoadEnabled(false);
 		}
 	}
@@ -434,7 +439,7 @@ static void process2PointSection()
 
 			refreshSubMenu();
 			s_selection = 0;
-			setTargetCurrent(0.f);
+			setDAC(0.f);
 			setLoadEnabled(false);
 		}
 	}
@@ -489,12 +494,17 @@ void beginCalibrationState()
 	s_menuSection = MenuSection::Main;
 
 	s_menu.pushSubMenu({
-	                 /* 0 */"<-",
+	                 /* 0 */"Back",
 					 /* 1 */"Voltage",
 	                 /* 2 */"Current",
 	                 /* 3 */"Temperature",
 	                 /* 4 */"DAC",
-	                }, 0, 12);
+	                }, 0, s_windowY);
+
+	setVoltageRange(s_range);
+	setCurrentRange(s_range);	
+	setDAC(0.f);
+	setLoadEnabled(false);
 }
 
 void endCalibrationState()

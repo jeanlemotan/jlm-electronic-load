@@ -7,8 +7,8 @@ class LabelWidget : public Widget
 {
 public:
 	LabelWidget(Adafruit_GFX& gfx, const char* value);
+	void setFont(const GFXfont* font);
 	void setTextColor(uint16_t color);
-	void setBackgroundColor(uint16_t color);
 	void setTextScale(uint8_t scale);
 	void setPosition(int16_t x, int16_t y) override;
 	int16_t getX() const override;
@@ -24,6 +24,8 @@ private:
 	void updateGeometry() const;
 
 	Adafruit_GFX& m_gfx;
+	const GFXfont* m_font = nullptr;
+
 	char m_value[32] = { 0 };
 	enum DirtyFlags
 	{
@@ -38,5 +40,4 @@ private:
 	mutable int16_t m_h = 0;
 	bool m_isSelected = false;
 	uint16_t m_textColor = 0xFFFF;
-	uint16_t m_backgroundColor = 0x0;
 };

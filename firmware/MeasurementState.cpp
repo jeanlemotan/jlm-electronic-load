@@ -3,6 +3,7 @@
 #include "LabelWidget.h"
 #include "Settings.h"
 #include "ADS1115.h"
+#include "DAC8571.h"
 #include "Adafruit_GFX.h"
 #include "AiEsp32RotaryEncoder.h"
 #include "PWM.h"
@@ -10,13 +11,21 @@
 #include <driver/adc.h>
 #include "Program.h"
 #include "Menu.h"
+#include "Fonts/SansSerif_plain_10.h"
+#include "Fonts/SansSerif_bold_10.h"
+#include "Fonts/SansSerif_plain_13.h"
+#include "Fonts/SansSerif_bold_13.h"
+#include "Fonts/SansSerif_plain_28.h"
+#include "Fonts/SansSerif_bold_28.h"
 
 extern GFXcanvas16 s_canvas;
+extern int16_t s_windowY;
 extern AiEsp32RotaryEncoder s_knob;
 extern Button s_button;
 extern ADS1115 s_adc;
+extern DAC8571 s_dac;
 extern Settings s_settings;
-extern uint8_t k_disableDacPin;
+extern uint8_t k_4WirePin;
 
 extern LabelWidget s_modeWidget;
 static LabelWidget s_rangeWidget(s_canvas, "");
@@ -24,6 +33,7 @@ static ValueWidget s_voltageWidget(s_canvas, 0.f, "V");
 static ValueWidget s_currentWidget(s_canvas, 0.f, "A");
 static ValueWidget s_powerWidget(s_canvas, 0.f, "W");
 static ValueWidget s_energyWidget(s_canvas, 0.f, "Wh");
+static ValueWidget s_chargeWidget(s_canvas, 0.f, "Ah");
 static LabelWidget s_targetLabelWidget(s_canvas, "-> ");
 static ValueWidget s_targetWidget(s_canvas, 0.f, "");
 
@@ -44,7 +54,8 @@ static float s_current = 0.f;
 static float s_voltage = 0.f;
 static bool s_loadEnabled = false;
 static float s_targetCurrent = 0.f;
-static float s_dac = 0.f;
+static float s_dacValue = 0.f;
+static bool s_4WireEnabled = false;
 
 ads1115_pga s_rangePgas[Settings::k_rangeCount] = { ADS1115_PGA_SIXTEEN, ADS1115_PGA_EIGHT, ADS1115_PGA_FOUR, ADS1115_PGA_TWO, ADS1115_PGA_ONE };
 float s_rangeLimits[Settings::k_rangeCount] = { 0.256f, 0.512f, 1.024f, 2.048f, 4.096f };
@@ -77,6 +88,7 @@ static float s_temperatureRaw = 0.f;
 static float s_temperature = 0.f;
 
 static float s_energy = 0.f;
+static float s_charge = 0.f;
 static uint32_t s_energyTP = 0;
 
 uint8_t getCurrentRange()
@@ -165,7 +177,25 @@ float getVoltageRaw()
 
 float computeTemperature(float raw)
 {
-	return (raw + s_settings.temperatureBias) * s_settings.temperatureScale;
+	//https://learn.adafruit.com/thermistor/using-a-thermistor
+
+	//return (raw + s_settings.temperatureBias) * s_settings.temperatureScale;
+	//adc = R / (R + 10K) * Vcc / Vref
+	float vcc = 3.3f;
+	float vref = 2.2f; //the adc attenuation
+	float R = (10000.f * raw) / (vcc / vref - raw);
+
+	// 1/T = 1/T0 + 1/B * ln(R/R0);
+	float T0 = 298.15f; //25 degrees celsius
+	float B = 3950; //thermistor coefficient
+	float R0 = 10000.f; //thermistor resistance at room temp
+
+	float Tinv = 1.f/T0 + 1.f/B * log(R/R0);
+	float T = 1.f / Tinv;
+
+	float Tc = T - 273.15f;
+
+	return Tc;
 }
 float getTemperature()
 {
@@ -185,10 +215,15 @@ float getEnergy()
 {
 	return s_energy;
 }
+float getCharge()
+{
+	return s_charge;
+}
 
 void resetEnergy()
 {
 	s_energy = 0;
+	s_charge = 0;
 }
 
 void setTargetCurrent(float target)
@@ -235,19 +270,26 @@ void setTargetCurrent(float target)
 
 void setDAC(float dac)
 {
-	s_dac = std::max(std::min(dac, 1.f), 0.f);
-	setDACPWM(s_dac);
+	s_dacValue = std::max(std::min(dac, 1.f), 0.f);
+	if (s_loadEnabled)
+	{
+		s_dac.write(uint16_t(s_dacValue * 65535.f));
+	}
+	else
+	{
+		s_dac.write(0);
+	}
 }
 
 float getDAC()
 {
-	return s_dac;
+	return s_dacValue;
 }
 
 void setLoadEnabled(bool enabled)
 {
 	s_loadEnabled = enabled;
-	digitalWrite(k_disableDacPin, !s_loadEnabled);
+	setDAC(s_dacValue);
 }
 bool isLoadEnabled()
 {
@@ -271,7 +313,7 @@ void readAdcs(bool& voltage, bool& current, bool& temperature)
 	current = false;
 	temperature = false;
 
-	if (!s_adc.is_sample_in_progress() && millis() >= s_adcSampleStartedTP + 75)
+	if (!s_adc.is_sample_in_progress() && millis() >= s_adcSampleStartedTP + 65)
 	{
 		float val = s_adc.read_sample_float();
 		if (s_adcMux == ADCMux::Voltage)
@@ -303,7 +345,7 @@ void readAdcs(bool& voltage, bool& current, bool& temperature)
 			}
 
 			s_currentRange = s_nextCurrentRange;
-			s_adc.set_mux(ADS1115_MUX_GND_AIN2); //switch to current pair
+			s_adc.set_mux(ADS1115_MUX_GND_AIN3); //switch to current pair
 			s_adc.set_pga(s_rangePgas[s_currentRange]);
 			s_adc.trigger_sample();
 			s_adcMux = ADCMux::Current;
@@ -336,7 +378,7 @@ void readAdcs(bool& voltage, bool& current, bool& temperature)
 			}
 
 			s_voltageRange = s_nextVoltageRange;
-			s_adc.set_mux(ADS1115_MUX_DIFF_AIN0_AIN1); //switch to voltage pair
+			s_adc.set_mux(ADS1115_MUX_GND_AIN0); //switch to voltage pair
 			s_adc.set_pga(s_rangePgas[s_voltageRange]);
 			s_adc.trigger_sample();
 			s_adcMux = ADCMux::Voltage;
@@ -352,12 +394,13 @@ void readAdcs(bool& voltage, bool& current, bool& temperature)
 		{
 			float dt = (tp - s_energyTP) / (3600.f * 1000.f);
 			s_energy += power * dt;
+			s_charge += getCurrent() * dt;
 		}
 		s_energyTP = tp;
 	}
 
-	s_temperatureRaw = 1.f - (adc1_get_raw(ADC1_CHANNEL_4) / 4096.f);
-	s_temperature = (s_temperature * 99.f + computeTemperature(s_temperatureRaw) * 1.f) / 100.f;
+	s_temperatureRaw = adc1_get_raw(ADC1_CHANNEL_4) / 4096.f;
+	s_temperature = (s_temperature * 90.f + computeTemperature(s_temperatureRaw) * 10.f) / 100.f;
 	temperature = true;
 }
 
@@ -397,6 +440,8 @@ void printOutput()
 	Serial.print(", ");
 	Serial.print(getEnergy(), 5);
 	Serial.print(", ");
+	Serial.print(getCharge(), 5);
+	Serial.print(", ");
 	Serial.print(getTemperature());
 	Serial.println("");
 
@@ -423,6 +468,8 @@ static void refreshSubMenu()
 		sprintf(buf, "Target:> %.3f %s", s_targetCurrent_mAh / 1000.f, "A");
 		s_menu.setSubMenuEntry(1, buf);
 	}
+	sprintf(buf, "4 Wire: %s", s_4WireEnabled ? "On" : "Off");
+	s_menu.setSubMenuEntry(2, buf);
 }
 
 void processMeasurementState()
@@ -433,6 +480,7 @@ void processMeasurementState()
 	{
 		setLoadEnabled(!isLoadEnabled());
 	}
+
 
 	if (s_menuSection == MenuSection::Main)
 	{
@@ -448,9 +496,14 @@ void processMeasurementState()
 		}
 		else if (selection == 2)
 		{
+			s_4WireEnabled = !s_4WireEnabled;
+			digitalWrite(k_4WirePin, s_4WireEnabled);
+		}
+		else if (selection == 3)
+		{
 			resetEnergy();
 		}
-		else if (selection == 4)
+		else if (selection == 5)
 		{
 			stopProgram();
 		}
@@ -496,7 +549,7 @@ void processMeasurementState()
 	char buf[32];
 	sprintf(buf, "(V%d/A%d)", getVoltageRange(), getCurrentRange());
 	s_rangeWidget.setValue(buf);
-  	s_rangeWidget.setPosition(s_canvas.width() - s_rangeWidget.getWidth() - 2, 11);
+  	s_rangeWidget.setPosition(s_canvas.width() - s_rangeWidget.getWidth() - 2, s_windowY + s_rangeWidget.getHeight());
 	s_rangeWidget.update();
 
 	s_voltageWidget.setTextColor(isVoltageValid() ? 0xFFFF : 0xF000);
@@ -509,11 +562,11 @@ void processMeasurementState()
 		s_targetWidget.setSuffix("A");
 		s_targetWidget.setValue(s_targetCurrent);
 		s_targetWidget.update();
-		s_currentWidget.setTextScale(3);
+		//s_currentWidget.setTextScale(3);
 	}
 	else
 	{
-		s_currentWidget.setTextScale(2);
+		//s_currentWidget.setTextScale(2);
 	}
 	s_currentWidget.setPosition(s_voltageWidget.getX(), s_voltageWidget.getY() + s_voltageWidget.getHeight() + 2);
 	s_currentWidget.setValue(s_current);
@@ -525,11 +578,11 @@ void processMeasurementState()
 		s_targetWidget.setSuffix("W");
 		s_targetWidget.setValue(s_targetCurrent);
 		s_targetWidget.update();
-		s_powerWidget.setTextScale(3);
+		//s_powerWidget.setTextScale(3);
 	}
 	else
 	{
-		s_powerWidget.setTextScale(2);
+		//s_powerWidget.setTextScale(2);
 	}
 	float power = abs(s_voltage * s_current);
 	s_powerWidget.setPosition(s_currentWidget.getX(), s_currentWidget.getY() + s_currentWidget.getHeight() + 2);
@@ -552,6 +605,22 @@ void processMeasurementState()
 	}
 	s_energyWidget.setPosition(s_powerWidget.getX(), s_powerWidget.getY() + s_powerWidget.getHeight() + 2);
 	s_energyWidget.update();
+
+	float charge = getCharge();
+	if (charge < 1.f)
+	{
+		s_chargeWidget.setValue(charge * 1000.f);
+		s_chargeWidget.setDecimals(3);
+		s_chargeWidget.setSuffix("mAh");
+	}
+	else
+	{
+		s_chargeWidget.setValue(charge);
+		s_chargeWidget.setDecimals(3);
+		s_chargeWidget.setSuffix("Ah");
+	}
+	s_chargeWidget.setPosition(s_energyWidget.getX(), s_energyWidget.getY() + s_energyWidget.getHeight() + 2);
+	s_chargeWidget.update();
 
 	if (s_menuSection != MenuSection::Disabled)
 	{
@@ -583,19 +652,14 @@ void processMeasurementState()
 			}
 		}
 	}
-
-	//static float fanSpeed = 0.f;
-	//if (fan)
-	//{
-	//	fanSpeed += 0.01f;
-	//}
-	//else
-	//{
-	//	fanSpeed -= 0.01f;
-	//}
-	//fanSpeed = std::max(std::min(fanSpeed, 0.7f), 0.f);
+/*
+	static int fanSpeed = 0;
+	fanSpeed += s_knob.encoderChangedAcc();
+	fanSpeed = std::min(std::max(fanSpeed, 0), 65535);
+	printf("\nDAC: %d, temp: %f", fanSpeed, s_temperature);
 	//setFanPWM(fanSpeed);
-
+	setDAC(fanSpeed / 65535.f);
+*/
 	updateTracking();
 	updateProgram();
 
@@ -607,23 +671,46 @@ void processMeasurementState()
 
 void initMeasurementState()
 {
-  	s_voltageWidget.setTextScale(2);
+	s_voltageWidget.setValueFont(&SansSerif_bold_10);
+	s_voltageWidget.setSuffixFont(&SansSerif_bold_10);
+  	s_voltageWidget.setTextScale(1);
   	s_voltageWidget.setDecimals(3);
-  	s_voltageWidget.setPosition(0, 30);
+  	s_voltageWidget.setPosition(0, 60);
 
-  	s_currentWidget.setTextScale(2);
-  	s_currentWidget.setDecimals(3);
+	s_currentWidget.setValueFont(&SansSerif_bold_10);
+	s_currentWidget.setSuffixFont(&SansSerif_bold_10);
+  	s_currentWidget.setTextScale(1);
+  	s_currentWidget.setDecimals(5);
   	s_currentWidget.setPosition(s_voltageWidget.getX(), s_voltageWidget.getY() + s_voltageWidget.getHeight() + 2);
 
-  	s_powerWidget.setTextScale(2);
+	s_powerWidget.setValueFont(&SansSerif_bold_10);
+	s_powerWidget.setSuffixFont(&SansSerif_bold_10);
+  	s_powerWidget.setTextScale(1);
   	s_powerWidget.setDecimals(3);
   	s_powerWidget.setPosition(s_currentWidget.getX(), s_currentWidget.getY() + s_currentWidget.getHeight() + 2);
 
-  	s_energyWidget.setTextScale(2);
+	s_energyWidget.setValueFont(&SansSerif_bold_10);
+	s_energyWidget.setSuffixFont(&SansSerif_bold_10);
+  	s_energyWidget.setTextScale(1);
   	s_energyWidget.setDecimals(3);
   	s_energyWidget.setPosition(s_powerWidget.getX(), s_powerWidget.getY() + s_powerWidget.getHeight() + 2);
 
+	s_chargeWidget.setValueFont(&SansSerif_bold_10);
+	s_chargeWidget.setSuffixFont(&SansSerif_bold_10);
+  	s_chargeWidget.setTextScale(1);
+  	s_chargeWidget.setDecimals(3);
+  	s_chargeWidget.setPosition(s_energyWidget.getX(), s_energyWidget.getY() + s_energyWidget.getHeight() + 2);
+
+	s_modeWidget.setFont(&SansSerif_bold_13);
+	s_modeWidget.setPosition(0, s_windowY - 3);
+
+	s_rangeWidget.setFont(&SansSerif_bold_13);
+
 	s_targetLabelWidget.setPosition(0, 11);
+	s_targetLabelWidget.setFont(&SansSerif_bold_13);
+
+	s_targetWidget.setValueFont(&SansSerif_bold_10);
+	s_targetWidget.setSuffixFont(&SansSerif_bold_10);
 	s_targetWidget.setPosition(s_targetLabelWidget.getX() + s_targetLabelWidget.getWidth() + 2, s_targetLabelWidget.getY());
   	s_targetWidget.setTextScale(1);
   	s_targetWidget.setDecimals(3);
@@ -632,13 +719,17 @@ void initMeasurementState()
 void beginMeasurementState()
 {
 	setLoadEnabled(false);
+	setCurrentAutoRanging(true);
+	setVoltageAutoRanging(true);
+
 	s_menu.pushSubMenu({
-	                 /* 0 */"<-",
+	                 /* 0 */"Back",
 					 /* 1 */"Target",
-	                 /* 2 */"Reset Energy",
-					 /* 3 */"Start Program",
-	                 /* 4 */"Stop Program",
-					 /* 5 */"Settings",
+	                 /* 2 */"4 Wire: On",
+					 /* 3 */"Reset Energy",
+					 /* 4 */"Start Program",
+	                 /* 5 */"Stop Program",
+					 /* 6 */"Settings",
 	                }, 0, s_canvas.width() - 40);
 }
 void endMeasurementState()

@@ -8,19 +8,17 @@ LabelWidget::LabelWidget(Adafruit_GFX& gfx, const char* value)
 		strncpy(m_value, value, sizeof(m_value));
 	}
 }
+void LabelWidget::setFont(const GFXfont* font)
+{
+	m_font = font;
+	m_dirtyFlags |= DirtyFlagRender;
+	m_dirtyFlags |= DirtyFlagGeometry;
+}
 void LabelWidget::setTextColor(uint16_t color)
 {
 	if (m_textColor != color)
 	{
 		m_textColor = color;
-		m_dirtyFlags |= DirtyFlagRender;
-	}
-}
-void LabelWidget::setBackgroundColor(uint16_t color)
-{
-	if (m_backgroundColor != color)
-	{
-		m_backgroundColor = color;
 		m_dirtyFlags |= DirtyFlagRender;
 	}
 }
@@ -71,15 +69,13 @@ void LabelWidget::update()
 	}
 	m_dirtyFlags &= ~DirtyFlagRender;
 
-	uint16_t bg = m_backgroundColor;
-	if (m_isSelected)
-	{
-		bg = 0x2222;
-	}
-	m_gfx.setTextColor(m_textColor, bg);
+	const GFXfont* oldFont = m_gfx.getFont();
+	m_gfx.setFont(m_font);
+	m_gfx.setTextColor(m_textColor);
 	m_gfx.setTextSize(m_textScale);
 	m_gfx.setCursor(m_x, m_y);
 	m_gfx.print(m_value);
+	m_gfx.setFont(oldFont);
 }
 void LabelWidget::setSelected(bool selected)
 {
@@ -124,10 +120,18 @@ void LabelWidget::updateGeometry() const
 	}
 	m_dirtyFlags &= ~DirtyFlagGeometry;
 
+	const GFXfont* oldFont = m_gfx.getFont();
+	m_gfx.setFont(m_font);
+
 	int16_t x, y;
 	uint16_t w, h;
 	m_gfx.setTextSize(m_textScale);
 	m_gfx.getTextBounds(m_value, 0, 0, &x, &y, &w, &h);
 	m_w = w;
 	m_h = h;
+	if (m_font)
+	{
+		m_h = m_font->yAdvance;
+	}
+	m_gfx.setFont(oldFont);
 }

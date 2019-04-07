@@ -11,6 +11,12 @@ class Menu
 public:
     Menu();
 
+    static constexpr uint16_t k_topBorderColor = 0xFFFF;
+    static constexpr uint16_t k_bottomBorderColor = 0xFFFF;
+    static constexpr uint16_t k_scrollBarColor = 0xFFFF;
+    static constexpr uint16_t k_selectedColor = 0xAAAA;
+    static constexpr uint16_t k_unselectedColor = 0xFFFF;
+
     void pushSubMenu(std::vector<std::string> const& entries, size_t selected, int16_t y);
     void popSubMenu();
 
@@ -30,6 +36,7 @@ private:
         int16_t y = 0;
         bool popped = false;
         bool finished = false;
+        uint16_t maxLineH = 0;
     };
 
     std::vector<SubMenu> m_subMenus;

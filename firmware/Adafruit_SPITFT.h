@@ -54,6 +54,7 @@ class Adafruit_SPITFT : public Adafruit_GFX {
         Adafruit_SPITFT(uint16_t w, uint16_t h, int8_t _CS, int8_t _DC, int8_t _MOSI, int8_t _SCLK, int8_t _RST = -1, int8_t _MISO = -1);
         Adafruit_SPITFT(uint16_t w, uint16_t h, int8_t _CS, int8_t _DC, int8_t _RST = -1);
         Adafruit_SPITFT(uint16_t w, uint16_t h, SPIClass *spiClass, int8_t _CS, int8_t _DC, int8_t _RST = -1);
+        ~Adafruit_SPITFT();
         virtual void begin(uint32_t freq) = 0;  ///< Virtual begin() function to set SPI frequency, must be overridden in subclass. @param freq Maximum SPI hardware clock speed
 
         void      initSPI(uint32_t freq);
@@ -148,6 +149,8 @@ class Adafruit_SPITFT : public Adafruit_GFX {
         uint32_t         lastFillLen   = 0;    ///< # of pixels w/last fill
         uint8_t          onePixelBuf;          ///< For hi==lo fill
 #endif
+
+    uint16_t* _buffer = nullptr;
 };
 
 #endif // !__AVR_ATtiny85__

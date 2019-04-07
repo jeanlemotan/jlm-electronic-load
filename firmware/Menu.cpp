@@ -123,7 +123,7 @@ void Menu::render(Adafruit_GFX& display, size_t maxEntries)
         return;
     }
 
-    m_crtX = (m_crtX * 9.f + m_targetX * 1.f) / 10.f;
+    m_crtX = (m_crtX * 7.f + m_targetX * 3.f) / 10.f;
 
     for (SubMenu& subMenu: m_subMenus)
     {
@@ -154,7 +154,17 @@ void Menu::render(Adafruit_GFX& display, SubMenu& subMenu, size_t maxEntries)
     int16_t y = subMenu.y;
 
     const int16_t borderH = 2;
-    const int16_t entryH = 10;
+
+    if (subMenu.maxLineH == 0)
+    {
+        for (const std::string& entry: subMenu.entries)
+        {
+            subMenu.maxLineH = std::max(subMenu.maxLineH, display.getTextHeight(entry.c_str()));
+        }
+    }
+
+    GFXfont* font = display.getFont();
+    const int16_t entryH = font->yAdvance;
 
     if (maxEntries == 0)
     {
@@ -180,11 +190,11 @@ void Menu::render(Adafruit_GFX& display, SubMenu& subMenu, size_t maxEntries)
 
     display.setTextWrap(false);
 
-    display.fillRect(x, y, display.width(), maxEntries*entryH + borderH*2, 0);
+    display.fillRect(x, y, display.width(), maxEntries*entryH + borderH*2, 0); 
     for (int16_t xx = 0; xx < display.width(); xx += 3)
     {
-        display.drawPixel(x + xx, y, 0xFFFF);
-        display.drawPixel(x + xx, y + maxEntries*entryH + borderH*2, 0xFFFF);
+        display.drawPixel(x + xx, y, k_topBorderColor);
+        display.drawPixel(x + xx, y + maxEntries*entryH + borderH*2, k_bottomBorderColor);
     }
 
     //show scroll bar
@@ -193,11 +203,12 @@ void Menu::render(Adafruit_GFX& display, SubMenu& subMenu, size_t maxEntries)
         int16_t scrollX = x + display.width() - 1;
         int16_t scrollY = y + subMenu.topEntry * totalH / subMenu.entries.size();
         int16_t scrollH = maxEntries * totalH / subMenu.entries.size();
-        display.drawLine(scrollX, scrollY, scrollX, scrollY + scrollH, 0xFFFF);
+        display.drawLine(scrollX, scrollY, scrollX, scrollY + scrollH, k_scrollBarColor);
     }
 
     y += borderH;
 
+    y += entryH - (entryH - subMenu.maxLineH);
     for (size_t i = 0; i < maxEntries; i++)
     {
         size_t entryIdx = subMenu.topEntry + i;
@@ -205,15 +216,15 @@ void Menu::render(Adafruit_GFX& display, SubMenu& subMenu, size_t maxEntries)
         if (subMenu.crtEntry == entryIdx)
         {
             int16_t rx = x + 2;
-            int16_t rw = display.width() - rx - 2;
-            //display.fillRect(rx, y, rw, entryH, 1);
-            display.setTextColor(0, 0xFFFF);
+            int16_t r = 3;
+            display.fillCircle(rx, y - subMenu.maxLineH / 2 + 1, r, k_selectedColor);
+            display.setTextColor(k_selectedColor);
         }
         else
         {
-            display.setTextColor(0xFFFF, 0);
+            display.setTextColor(k_unselectedColor);
         }
-        display.setCursor(x + 4, y + (entryH - 8) / 2);
+        display.setCursor(x + 8, y);
         display.print(subMenu.entries[entryIdx].c_str());
         y += entryH;
     }

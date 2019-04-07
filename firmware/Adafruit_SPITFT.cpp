@@ -64,6 +64,8 @@ static void dma_callback(Adafruit_ZeroDMA *dma) {
 
 #endif // USE_SPI_DMA
 
+constexpr size_t BUFFER_SIZE = 8192;
+
 /**************************************************************************/
 /*!
     @brief  Pass 8-bit (each) R,G,B, get back 16-bit packed color
@@ -188,6 +190,11 @@ Adafruit_SPITFT::Adafruit_SPITFT(uint16_t w, uint16_t h, SPIClass *spiClass,
         cspinmask = 0;
     }
 #endif
+}
+
+Adafruit_SPITFT::~Adafruit_SPITFT()
+{
+    delete _buffer;
 }
 
 
