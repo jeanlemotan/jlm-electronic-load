@@ -24,9 +24,9 @@
 #include "Fonts/SansSerif_plain_13.h"
 #include "Fonts/SansSerif_bold_13.h"
 
-//static Adafruit_ILI9341 s_display = Adafruit_ILI9341(5, 4);
-static Adafruit_SSD1351 s_display(128, 128, &SPI, 5, 4, 2);
-DeltaBitmap s_canvas(128, 128, 4, 4);
+static Adafruit_ILI9341 s_display = Adafruit_ILI9341(5, 4);
+//static Adafruit_SSD1351 s_display(128, 128, &SPI, 5, 4, 2);
+DeltaBitmap s_canvas(320, 240, 4, 4);
 int16_t s_windowY = 0;
 
 //w, h, cs, dc, mosi, clk, rst
@@ -120,8 +120,8 @@ void setup()
 
 //  SPI.begin();
 //  SPI.setDataMode(SPI_MODE3);
-  s_display.begin(16000000);
-  s_display.setRotation(3);
+  s_display.begin(64000000);
+  s_display.setRotation(1);
   s_display.fillRect(0, 0, s_display.width(), s_display.height(), 0xFFFF);
   s_display.fillRect(0, 0, s_display.width(), s_display.height(), 0x0);
 

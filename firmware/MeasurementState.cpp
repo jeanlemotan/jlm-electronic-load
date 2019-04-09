@@ -507,7 +507,6 @@ void processMeasurementState()
 		{
 			stopProgram();
 		}
-		s_menu.render(s_canvas, 0);
 	}
 	else if (s_menuSection == MenuSection::SetTarget)
 	{
@@ -522,7 +521,6 @@ void processMeasurementState()
 		}
 
 		refreshSubMenu();
-		s_menu.render(s_canvas, 0);
 	}
 	else if (s_menuSection == MenuSection::Disabled)
 	{
@@ -671,31 +669,31 @@ void processMeasurementState()
 
 void initMeasurementState()
 {
-	s_voltageWidget.setValueFont(&SansSerif_bold_10);
+	s_voltageWidget.setValueFont(&SansSerif_bold_28);
 	s_voltageWidget.setSuffixFont(&SansSerif_bold_10);
   	s_voltageWidget.setTextScale(1);
   	s_voltageWidget.setDecimals(3);
   	s_voltageWidget.setPosition(0, 60);
 
-	s_currentWidget.setValueFont(&SansSerif_bold_10);
+	s_currentWidget.setValueFont(&SansSerif_bold_28);
 	s_currentWidget.setSuffixFont(&SansSerif_bold_10);
   	s_currentWidget.setTextScale(1);
-  	s_currentWidget.setDecimals(5);
+  	s_currentWidget.setDecimals(3);
   	s_currentWidget.setPosition(s_voltageWidget.getX(), s_voltageWidget.getY() + s_voltageWidget.getHeight() + 2);
 
-	s_powerWidget.setValueFont(&SansSerif_bold_10);
+	s_powerWidget.setValueFont(&SansSerif_bold_28);
 	s_powerWidget.setSuffixFont(&SansSerif_bold_10);
   	s_powerWidget.setTextScale(1);
   	s_powerWidget.setDecimals(3);
   	s_powerWidget.setPosition(s_currentWidget.getX(), s_currentWidget.getY() + s_currentWidget.getHeight() + 2);
 
-	s_energyWidget.setValueFont(&SansSerif_bold_10);
+	s_energyWidget.setValueFont(&SansSerif_bold_28);
 	s_energyWidget.setSuffixFont(&SansSerif_bold_10);
   	s_energyWidget.setTextScale(1);
   	s_energyWidget.setDecimals(3);
   	s_energyWidget.setPosition(s_powerWidget.getX(), s_powerWidget.getY() + s_powerWidget.getHeight() + 2);
 
-	s_chargeWidget.setValueFont(&SansSerif_bold_10);
+	s_chargeWidget.setValueFont(&SansSerif_bold_28);
 	s_chargeWidget.setSuffixFont(&SansSerif_bold_10);
   	s_chargeWidget.setTextScale(1);
   	s_chargeWidget.setDecimals(3);
@@ -709,7 +707,7 @@ void initMeasurementState()
 	s_targetLabelWidget.setPosition(0, 11);
 	s_targetLabelWidget.setFont(&SansSerif_bold_13);
 
-	s_targetWidget.setValueFont(&SansSerif_bold_10);
+	s_targetWidget.setValueFont(&SansSerif_bold_28);
 	s_targetWidget.setSuffixFont(&SansSerif_bold_10);
 	s_targetWidget.setPosition(s_targetLabelWidget.getX() + s_targetLabelWidget.getWidth() + 2, s_targetLabelWidget.getY());
   	s_targetWidget.setTextScale(1);
@@ -730,7 +728,7 @@ void beginMeasurementState()
 					 /* 4 */"Start Program",
 	                 /* 5 */"Stop Program",
 					 /* 6 */"Settings",
-	                }, 0, s_canvas.width() - 40);
+	                }, 0, s_canvas.height() - 80);
 }
 void endMeasurementState()
 {
