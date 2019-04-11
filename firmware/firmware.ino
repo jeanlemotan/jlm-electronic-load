@@ -10,6 +10,10 @@
 #include <SPI.h>
 #include <driver/adc.h>
 #include <driver/rtc_io.h>
+#include "driver/sdspi_host.h"
+#include "esp_vfs_fat.h"
+#include "esp_err.h"
+#include "sdmmc_cmd.h"
 #include "PWM.h"
 #include "Settings.h"
 #include "ValueWidget.h"
@@ -17,6 +21,7 @@
 #include "CalibrationState.h"
 #include "MeasurementState.h"
 #include "State.h"
+#include "XPT2046.h"
 #include "Fonts/SansSerif_plain_10.h"
 #include "Fonts/SansSerif_bold_10.h"
 #include "Fonts/SansSerif_plain_12.h"
@@ -37,6 +42,7 @@ int16_t s_windowY = 0;
 AiEsp32RotaryEncoder s_knob(34, 35, 39, -1);
 ADS1115 s_adc;
 DAC8571 s_dac;
+XPT2046_Touchscreen s_touchscreen(27);
 Settings s_settings;
 Button s_button(36);
 
@@ -61,43 +67,84 @@ void setup()
 
   esp_log_level_set("*", ESP_LOG_DEBUG);
 
-  esp_vfs_spiffs_conf_t conf = 
   {
-    .base_path = "/spiffs",
-    .partition_label = NULL,
-    .max_files = 5,
-    .format_if_mount_failed = true
-  };
+    esp_vfs_spiffs_conf_t conf = 
+    {
+      .base_path = "/spiffs",
+      .partition_label = NULL,
+      .max_files = 5,
+      .format_if_mount_failed = true
+    };
 
-  // Use settings defined above to initialize and mount SPIFFS filesystem.
-  // Note: esp_vfs_spiffs_register is an all-in-one convenience function.
-  esp_err_t ret = esp_vfs_spiffs_register(&conf);
-  if (ret != ESP_OK) 
-  {
-    if (ret == ESP_FAIL) 
+    // Use settings defined above to initialize and mount SPIFFS filesystem.
+    // Note: esp_vfs_spiffs_register is an all-in-one convenience function.
+    esp_err_t ret = esp_vfs_spiffs_register(&conf);
+    if (ret != ESP_OK) 
     {
-      ESP_LOGE(TAG, "Failed to mount or format filesystem");
-    } 
-    else if (ret == ESP_ERR_NOT_FOUND) 
+      if (ret == ESP_FAIL) 
+      {
+        ESP_LOGE(TAG, "Failed to mount or format filesystem");
+      } 
+      else if (ret == ESP_ERR_NOT_FOUND) 
+      {
+        ESP_LOGE(TAG, "Failed to find SPIFFS partition");
+      } 
+      else 
+      {
+        ESP_LOGE(TAG, "Failed to initialize SPIFFS (%s)", esp_err_to_name(ret));
+      }
+      return;
+    }
+
+    size_t total = 0, used = 0;
+    ret = esp_spiffs_info(NULL, &total, &used);
+    if (ret != ESP_OK) 
     {
-      ESP_LOGE(TAG, "Failed to find SPIFFS partition");
+      ESP_LOGE(TAG, "Failed to get SPIFFS partition information (%s)", esp_err_to_name(ret));
     } 
     else 
     {
-      ESP_LOGE(TAG, "Failed to initialize SPIFFS (%s)", esp_err_to_name(ret));
+      ESP_LOGI(TAG, "Partition size: total: %d, used: %d", total, used);
     }
-    return;
   }
 
-  size_t total = 0, used = 0;
-  ret = esp_spiffs_info(NULL, &total, &used);
-  if (ret != ESP_OK) 
   {
-    ESP_LOGE(TAG, "Failed to get SPIFFS partition information (%s)", esp_err_to_name(ret));
-  } 
-  else 
-  {
-    ESP_LOGI(TAG, "Partition size: total: %d, used: %d", total, used);
+    sdmmc_host_t host = SDSPI_HOST_DEFAULT();
+    sdspi_slot_config_t slot_config = SDSPI_SLOT_CONFIG_DEFAULT();
+    slot_config.gpio_miso = GPIO_NUM_2;
+    slot_config.gpio_mosi = GPIO_NUM_15;
+    slot_config.gpio_sck  = GPIO_NUM_14;
+    slot_config.gpio_cs   = GPIO_NUM_13;
+    //slot_config.gpio_cd   = GPIO_NUM_12;
+
+    gpio_set_pull_mode(GPIO_NUM_12, GPIO_PULLUP_ONLY);
+
+    esp_vfs_fat_sdmmc_mount_config_t mount_config = 
+    {
+        .format_if_mount_failed = false,
+        .max_files = 5,
+        .allocation_unit_size = 16 * 1024
+    };
+
+    sdmmc_card_t* card;
+    esp_err_t ret = esp_vfs_fat_sdmmc_mount("/sdcard", &host, &slot_config, &mount_config, &card);
+    if (ret != ESP_OK) 
+    {
+        if (ret == ESP_FAIL) 
+        {
+            ESP_LOGE(TAG, "Failed to mount filesystem. "
+                "If you want the card to be formatted, set format_if_mount_failed = true.");
+        } 
+        else 
+        {
+            ESP_LOGE(TAG, "Failed to initialize the card (%s). "
+                "Make sure SD card lines have pull-up resistors in place.", esp_err_to_name(ret));
+        }
+        return;
+    }
+
+    // Card has been initialized, print its properties
+    sdmmc_card_print_info(stdout, card);
   }
 
   //pwm1Configure(PWM1_62k); //DAC PWM
@@ -191,10 +238,21 @@ void loop()
   s_canvas.setFont(&SansSerif_bold_10);
   s_canvas.fillRect(0, 0, s_canvas.width(), s_windowY, 0xFFFF);
 
-//Temperature
+  //Temperature
   s_temperatureWidget.setValue(getTemperature());
-  s_temperatureWidget.setPosition(s_canvas.width() - s_temperatureWidget.getWidth() - 3, s_windowY - 3);
+  s_temperatureWidget.setPosition(s_canvas.width() - s_temperatureWidget.getWidth() - 5, s_windowY - 3);
   s_temperatureWidget.update();
+
+  uint8_t bmp[] = 
+  {
+    0x01, 0xfc, 0x03, 0x54, 0x07, 0x54, 0x0f, 0x54, 0x1f, 0x54, 0x3f, 0x54, 0x3f, 0xfc, 0x3f, 0xfc,
+    0x3f, 0xfc, 0x3f, 0xfc, 0x3f, 0xfc, 0x3f, 0xfc, 0x3f, 0xfc, 0x3f, 0xfc, 0x3f, 0xfc, 0x3f, 0xfc
+  };
+  //if ()
+  {
+    s_canvas.drawBitmap(s_canvas.width() - 18, s_canvas.height() - 18, bmp, 16, 16, 0xFFFF);
+  }
+  printf("\nXXX %d", gpio_get_level(GPIO_NUM_12));
 
   s_canvas.setFont(&SansSerif_bold_13);
 
