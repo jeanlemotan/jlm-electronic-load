@@ -12,14 +12,15 @@ public:
 	void setSuffix(const char* suffix);
 	void setLimits(float minLimit, float maxLimit);
 	void setDecimals(uint8_t decimals);
-	void setTextColor(uint16_t color);
+	void setValueColor(uint16_t color);
+	void setSuffixColor(uint16_t color);
 	void setTextScale(uint8_t scale);
 	void setPosition(int16_t x, int16_t y) override;
 	int16_t getX() const override;
 	int16_t getY() const override;
 	int16_t getWidth() const override;
 	int16_t getHeight() const override;
-	void update() override;
+	void render() override;
 	void setSelected(bool selected) override;
 	bool isSelected() const override;
 	void setValue(float value);
@@ -50,5 +51,6 @@ private:
 	float m_min = -999999999.f;
 	float m_max = 999999999.f;
 	bool m_isSelected = false;
-	uint16_t m_textColor = 0xFFFF;
+	uint16_t m_valueColor = 0xFFFF;
+	uint16_t m_suffixColor = 0xFFFF;
 };

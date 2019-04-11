@@ -15,7 +15,7 @@ public:
 	int16_t getY() const override;
 	int16_t getWidth() const override;
 	int16_t getHeight() const override;
-	void update() override;
+	void render() override;
 	void setSelected(bool selected) override;
 	bool isSelected() const override;
 	void setValue(const char* value);

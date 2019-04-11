@@ -61,7 +61,7 @@ int16_t LabelWidget::getY() const
 	return m_y;
 }
 
-void LabelWidget::update()
+void LabelWidget::render()
 {
 	if ((m_dirtyFlags & DirtyFlagRender) == 0)
 	{

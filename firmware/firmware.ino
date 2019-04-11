@@ -47,6 +47,7 @@ Settings s_settings;
 Button s_button(36);
 
 uint8_t k_4WirePin = 16;
+bool s_sdCardMounted = false;
 
 static ValueWidget s_temperatureWidget(s_canvas, 0.f, "'C");
 LabelWidget s_modeWidget(s_canvas, "");
@@ -108,45 +109,6 @@ void setup()
     }
   }
 
-  {
-    sdmmc_host_t host = SDSPI_HOST_DEFAULT();
-    sdspi_slot_config_t slot_config = SDSPI_SLOT_CONFIG_DEFAULT();
-    slot_config.gpio_miso = GPIO_NUM_2;
-    slot_config.gpio_mosi = GPIO_NUM_15;
-    slot_config.gpio_sck  = GPIO_NUM_14;
-    slot_config.gpio_cs   = GPIO_NUM_13;
-    //slot_config.gpio_cd   = GPIO_NUM_12;
-
-    gpio_set_pull_mode(GPIO_NUM_12, GPIO_PULLUP_ONLY);
-
-    esp_vfs_fat_sdmmc_mount_config_t mount_config = 
-    {
-        .format_if_mount_failed = false,
-        .max_files = 5,
-        .allocation_unit_size = 16 * 1024
-    };
-
-    sdmmc_card_t* card;
-    esp_err_t ret = esp_vfs_fat_sdmmc_mount("/sdcard", &host, &slot_config, &mount_config, &card);
-    if (ret != ESP_OK) 
-    {
-        if (ret == ESP_FAIL) 
-        {
-            ESP_LOGE(TAG, "Failed to mount filesystem. "
-                "If you want the card to be formatted, set format_if_mount_failed = true.");
-        } 
-        else 
-        {
-            ESP_LOGE(TAG, "Failed to initialize the card (%s). "
-                "Make sure SD card lines have pull-up resistors in place.", esp_err_to_name(ret));
-        }
-        return;
-    }
-
-    // Card has been initialized, print its properties
-    sdmmc_card_print_info(stdout, card);
-  }
-
   //pwm1Configure(PWM1_62k); //DAC PWM
   //pwm4Configure(PWM4_23k); //POWER PWM
   //pwm4Set6(128);
@@ -181,18 +143,14 @@ void setup()
   pinMode(k_4WirePin, OUTPUT); 
   //digitalWrite(k_4WirePin, 1);
 
+  s_touchscreen.begin();
+  s_touchscreen.setRotation(1);
+
   s_knob.begin();
   s_knob.setup(&knobISR);
   s_knob.enable();
   s_knob.setBoundaries(-10000, 10000);
   s_knob.reset();
-
-  {
-    ESP_ERROR_CHECK(gpio_set_direction(GPIO_NUM_26, GPIO_MODE_INPUT));
-    ESP_ERROR_CHECK(gpio_pullup_en(GPIO_NUM_26));
-    ESP_ERROR_CHECK(gpio_set_direction(GPIO_NUM_27, GPIO_MODE_INPUT));
-    ESP_ERROR_CHECK(gpio_pullup_en(GPIO_NUM_27));
-  }
 
   initMeasurementState();
   initCalibrationState();
@@ -208,7 +166,8 @@ void setup()
   s_modeWidget.setFont(&SansSerif_bold_10);
 
   s_temperatureWidget.setTextScale(1);
-  s_temperatureWidget.setTextColor(0x0);
+  s_temperatureWidget.setValueColor(0x0);
+  s_temperatureWidget.setSuffixColor(0x0);
   s_temperatureWidget.setDecimals(1);
   s_temperatureWidget.setValueFont(&SansSerif_bold_10);
   s_temperatureWidget.setSuffixFont(&SansSerif_bold_10);
@@ -224,13 +183,66 @@ void setup()
 
 }
 
+void processSDCard()
+{
+  bool cardPresent = gpio_get_level(GPIO_NUM_12) == 0;
+  if (s_sdCardMounted == cardPresent)
+  {
+      return;
+  }
+
+  if (cardPresent)
+  {
+    sdmmc_host_t host = SDSPI_HOST_DEFAULT();
+    sdspi_slot_config_t slot_config = SDSPI_SLOT_CONFIG_DEFAULT();
+    slot_config.gpio_miso = GPIO_NUM_2;
+    slot_config.gpio_mosi = GPIO_NUM_15;
+    slot_config.gpio_sck  = GPIO_NUM_14;
+    slot_config.gpio_cs   = GPIO_NUM_13;
+    slot_config.gpio_cd   = GPIO_NUM_12;
+
+    gpio_set_pull_mode(GPIO_NUM_12, GPIO_PULLUP_ONLY);
+
+    esp_vfs_fat_sdmmc_mount_config_t mount_config = 
+    {
+        .format_if_mount_failed = false,
+        .max_files = 5,
+        .allocation_unit_size = 16 * 1024
+    };
+
+    sdmmc_card_t* card;
+    esp_err_t ret = esp_vfs_fat_sdmmc_mount("/sdcard", &host, &slot_config, &mount_config, &card);
+    if (ret != ESP_OK) 
+    {
+        if (ret == ESP_FAIL) 
+        {
+            ESP_LOGE(TAG, "Failed to mount filesystem. "
+                "If you want the card to be formatted, set format_if_mount_failed = true.");
+        } 
+        else 
+        {
+            ESP_LOGE(TAG, "Failed to initialize the card (%s). "
+                "Make sure SD card lines have pull-up resistors in place.", esp_err_to_name(ret));
+        }
+        return;
+    }
+    // Card has been initialized, print its properties
+    sdmmc_card_print_info(stdout, card);
+    s_sdCardMounted = true;
+  }
+  else
+  {
+    esp_vfs_fat_sdmmc_unmount();    
+    s_sdCardMounted = false;
+  }
+}
 
 
 // the loop function runs over and over again forever
 void loop()
 {
   static uint32_t lastTP = millis();
-  printf("\nD: %lu", millis() - lastTP);
+  //printf("\nD: %lu", millis() - lastTP);
   lastTP = millis();
 
   s_canvas.fillScreen(0);
@@ -241,18 +253,27 @@ void loop()
   //Temperature
   s_temperatureWidget.setValue(getTemperature());
   s_temperatureWidget.setPosition(s_canvas.width() - s_temperatureWidget.getWidth() - 5, s_windowY - 3);
-  s_temperatureWidget.update();
+  s_temperatureWidget.render();
+
+  if (s_touchscreen.touched())
+  {
+    TS_Point point = s_touchscreen.getPoint();
+    //printf("\n%d, %d, %d", (int)point.x, (int)point.y, (int)point.z);
+    s_canvas.fillCircle(point.x / 4096.f * 320, point.y / 4096.f * 240, point.z / 4096.f * 50 + 50, 0xFFFF);
+  }
+
+  processSDCard();
+  //printf("\nXXX %d", gpio_get_level(GPIO_NUM_12));
 
   uint8_t bmp[] = 
   {
     0x01, 0xfc, 0x03, 0x54, 0x07, 0x54, 0x0f, 0x54, 0x1f, 0x54, 0x3f, 0x54, 0x3f, 0xfc, 0x3f, 0xfc,
     0x3f, 0xfc, 0x3f, 0xfc, 0x3f, 0xfc, 0x3f, 0xfc, 0x3f, 0xfc, 0x3f, 0xfc, 0x3f, 0xfc, 0x3f, 0xfc
   };
-  //if ()
+  if (s_sdCardMounted)
   {
     s_canvas.drawBitmap(s_canvas.width() - 18, s_canvas.height() - 18, bmp, 16, 16, 0xFFFF);
   }
-  printf("\nXXX %d", gpio_get_level(GPIO_NUM_12));
 
   s_canvas.setFont(&SansSerif_bold_13);
 

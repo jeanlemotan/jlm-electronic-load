@@ -41,11 +41,19 @@ void ValueWidget::setLimits(float minLimit, float maxLimit)
 	m_max = maxLimit;
 	setValue(m_value);
 }
-void ValueWidget::setTextColor(uint16_t color)
+void ValueWidget::setValueColor(uint16_t color)
 {
-	if (m_textColor != color)
+	if (m_valueColor != color)
 	{
-		m_textColor = color;
+		m_valueColor = color;
+		m_dirtyFlags |= DirtyFlagRender;
+	}
+}
+void ValueWidget::setSuffixColor(uint16_t color)
+{
+	if (m_suffixColor != color)
+	{
+		m_suffixColor = color;
 		m_dirtyFlags |= DirtyFlagRender;
 	}
 }
@@ -88,7 +96,7 @@ int16_t ValueWidget::getY() const
 	return m_y;
 }
 
-void ValueWidget::update()
+void ValueWidget::render()
 {
 	const GFXfont* oldFont = m_gfx.getFont();
 
@@ -98,7 +106,7 @@ void ValueWidget::update()
 	}
 	m_dirtyFlags &= ~DirtyFlagRender;
 
-	m_gfx.setTextColor(m_textColor);
+	m_gfx.setTextColor(m_valueColor);
 	m_gfx.setTextSize(m_textScale);
 	m_gfx.setFont(m_valueFont);
 
@@ -115,6 +123,7 @@ void ValueWidget::update()
 	m_gfx.print(str);
 	if (m_suffix[0] != '\0')
 	{
+		m_gfx.setTextColor(m_suffixColor);
 		m_gfx.setFont(m_suffixFont);
 		m_gfx.print(m_suffix);
 	}

@@ -36,6 +36,7 @@ static ValueWidget s_energyWidget(s_canvas, 0.f, "Wh");
 static ValueWidget s_chargeWidget(s_canvas, 0.f, "Ah");
 static LabelWidget s_targetLabelWidget(s_canvas, "-> ");
 static ValueWidget s_targetWidget(s_canvas, 0.f, "");
+static LabelWidget s_timerWidget(s_canvas, " 00:00:00");
 
 static Menu s_menu;
 enum class MenuSection
@@ -540,53 +541,41 @@ void processMeasurementState()
 
 	//Mode
 	s_modeWidget.setValue(isRunningProgram() ? "Program Mode" : s_mode == Mode::CC ? "CC Mode" : s_mode == Mode::CP ? "CP Mode" : "CR Mode");
-	s_modeWidget.update();
+	s_modeWidget.render();
 
-	s_targetLabelWidget.update();
+	s_targetLabelWidget.render();
 
 	char buf[32];
 	sprintf(buf, "(V%d/A%d)", getVoltageRange(), getCurrentRange());
 	s_rangeWidget.setValue(buf);
   	s_rangeWidget.setPosition(s_canvas.width() - s_rangeWidget.getWidth() - 2, s_windowY + s_rangeWidget.getHeight());
-	s_rangeWidget.update();
+	s_rangeWidget.render();
 
-	s_voltageWidget.setTextColor(isVoltageValid() ? 0xFFFF : 0xF000);
+	s_voltageWidget.setValueColor(isVoltageValid() ? 0xFFFF : 0xF000);
 	//s_voltageWidget.setDecimals(s_voltage < 10.f ? 3 : 2);
 	s_voltageWidget.setValue(s_voltage);
-	s_voltageWidget.update();
+	s_voltageWidget.render();
 
 	if (s_mode == Mode::CC)
 	{
 		s_targetWidget.setSuffix("A");
 		s_targetWidget.setValue(s_targetCurrent);
-		s_targetWidget.update();
-		//s_currentWidget.setTextScale(3);
+		s_targetWidget.render();
 	}
-	else
-	{
-		//s_currentWidget.setTextScale(2);
-	}
-	s_currentWidget.setPosition(s_voltageWidget.getX(), s_voltageWidget.getY() + s_voltageWidget.getHeight() + 2);
 	s_currentWidget.setValue(s_current);
-	s_currentWidget.setTextColor(isLoadEnabled() ? 0xF222 : 0xFFFF);
-	s_currentWidget.update();
+	s_currentWidget.setValueColor(isLoadEnabled() ? 0xF222 : 0xFFFF);
+	s_currentWidget.render();
 
 	if (s_mode == Mode::CP)
 	{
 		s_targetWidget.setSuffix("W");
 		s_targetWidget.setValue(s_targetCurrent);
-		s_targetWidget.update();
-		//s_powerWidget.setTextScale(3);
-	}
-	else
-	{
-		//s_powerWidget.setTextScale(2);
+		s_targetWidget.render();
 	}
 	float power = abs(s_voltage * s_current);
-	s_powerWidget.setPosition(s_currentWidget.getX(), s_currentWidget.getY() + s_currentWidget.getHeight() + 2);
 	s_powerWidget.setDecimals(power < 10.f ? 3 : power < 100.f ? 2 : 1);
 	s_powerWidget.setValue(power);
-	s_powerWidget.update();
+	s_powerWidget.render();
 
 	float energy = getEnergy();
 	if (energy < 1.f)
@@ -601,8 +590,7 @@ void processMeasurementState()
 		s_energyWidget.setDecimals(3);
 		s_energyWidget.setSuffix("Wh");
 	}
-	s_energyWidget.setPosition(s_powerWidget.getX(), s_powerWidget.getY() + s_powerWidget.getHeight() + 2);
-	s_energyWidget.update();
+	s_energyWidget.render();
 
 	float charge = getCharge();
 	if (charge < 1.f)
@@ -617,8 +605,9 @@ void processMeasurementState()
 		s_chargeWidget.setDecimals(3);
 		s_chargeWidget.setSuffix("Ah");
 	}
-	s_chargeWidget.setPosition(s_energyWidget.getX(), s_energyWidget.getY() + s_energyWidget.getHeight() + 2);
-	s_chargeWidget.update();
+	s_chargeWidget.render();
+
+	s_timerWidget.render();
 
 	if (s_menuSection != MenuSection::Disabled)
 	{
@@ -669,42 +658,52 @@ void processMeasurementState()
 
 void initMeasurementState()
 {
+	s_voltageWidget.setSuffixColor(0x05D2);
 	s_voltageWidget.setValueFont(&SansSerif_bold_28);
 	s_voltageWidget.setSuffixFont(&SansSerif_bold_10);
   	s_voltageWidget.setTextScale(1);
   	s_voltageWidget.setDecimals(3);
   	s_voltageWidget.setPosition(0, 60);
 
+	s_currentWidget.setSuffixColor(0x0C3C);
 	s_currentWidget.setValueFont(&SansSerif_bold_28);
 	s_currentWidget.setSuffixFont(&SansSerif_bold_10);
   	s_currentWidget.setTextScale(1);
   	s_currentWidget.setDecimals(3);
   	s_currentWidget.setPosition(s_voltageWidget.getX(), s_voltageWidget.getY() + s_voltageWidget.getHeight() + 2);
 
+	s_powerWidget.setSuffixColor(0xFBAE);
 	s_powerWidget.setValueFont(&SansSerif_bold_28);
 	s_powerWidget.setSuffixFont(&SansSerif_bold_10);
   	s_powerWidget.setTextScale(1);
   	s_powerWidget.setDecimals(3);
   	s_powerWidget.setPosition(s_currentWidget.getX(), s_currentWidget.getY() + s_currentWidget.getHeight() + 2);
 
+	s_energyWidget.setSuffixColor(0xD186);
 	s_energyWidget.setValueFont(&SansSerif_bold_28);
 	s_energyWidget.setSuffixFont(&SansSerif_bold_10);
   	s_energyWidget.setTextScale(1);
   	s_energyWidget.setDecimals(3);
-  	s_energyWidget.setPosition(s_powerWidget.getX(), s_powerWidget.getY() + s_powerWidget.getHeight() + 2);
+  	s_energyWidget.setPosition(128, 60);
 
+	s_chargeWidget.setSuffixColor(0x6AFC);
 	s_chargeWidget.setValueFont(&SansSerif_bold_28);
 	s_chargeWidget.setSuffixFont(&SansSerif_bold_10);
   	s_chargeWidget.setTextScale(1);
   	s_chargeWidget.setDecimals(3);
   	s_chargeWidget.setPosition(s_energyWidget.getX(), s_energyWidget.getY() + s_energyWidget.getHeight() + 2);
 
+	s_timerWidget.setTextColor(0xFE4D);
+	s_timerWidget.setFont(&SansSerif_bold_28);
+  	s_timerWidget.setTextScale(1);
+  	s_timerWidget.setPosition(s_chargeWidget.getX(), s_chargeWidget.getY() + s_chargeWidget.getHeight() + 2);
+
 	s_modeWidget.setFont(&SansSerif_bold_13);
 	s_modeWidget.setPosition(0, s_windowY - 3);
 
 	s_rangeWidget.setFont(&SansSerif_bold_13);
 
-	s_targetLabelWidget.setPosition(0, 11);
+	s_targetLabelWidget.setPosition(0, s_windowY + 11);
 	s_targetLabelWidget.setFont(&SansSerif_bold_13);
 
 	s_targetWidget.setValueFont(&SansSerif_bold_28);
@@ -728,7 +727,7 @@ void beginMeasurementState()
 					 /* 4 */"Start Program",
 	                 /* 5 */"Stop Program",
 					 /* 6 */"Settings",
-	                }, 0, s_canvas.height() - 80);
+	                }, 0, s_powerWidget.getY() + 4);
 }
 void endMeasurementState()
 {

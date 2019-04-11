@@ -131,7 +131,7 @@ static void processMainSection()
 
 	//Mode
 	s_modeWidget.setValue("Cal");
-	s_modeWidget.update();
+	s_modeWidget.render();
 
 	size_t selection = s_menu.process(s_knob);
 	if (selection == 0)
@@ -179,7 +179,7 @@ static void processDACSection()
 
 	//Mode
 	s_modeWidget.setValue("Cal / DAC");
-	s_modeWidget.update();
+	s_modeWidget.render();
 
 	if (s_selection == 0)
 	{
@@ -288,7 +288,7 @@ static void process2PointSection()
 	//Mode
 	sprintf(buf, "Cal / %s", getUnit());
 	s_modeWidget.setValue(buf);
-	s_modeWidget.update();
+	s_modeWidget.render();
 
 	if (s_selection == 0)
 	{
