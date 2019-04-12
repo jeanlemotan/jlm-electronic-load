@@ -13,7 +13,7 @@ Menu::Menu()
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Menu::pushSubMenu(std::vector<std::string> const& entries, size_t selected, int16_t y)
+void Menu::pushSubMenu(std::vector<Entry> entries, size_t selected, int16_t y)
 {
     if (entries.empty())
     {
@@ -27,8 +27,8 @@ void Menu::pushSubMenu(std::vector<std::string> const& entries, size_t selected,
 //    }
 
     SubMenu subMenu;
-    subMenu.entries = entries;
     subMenu.crtEntry = std::min(selected, entries.size() - 1);
+    subMenu.entries = std::move(entries);
     subMenu.topEntry = 0;
     subMenu.x = MENU_WIDTH * m_subMenus.size();
     subMenu.y = y;
@@ -64,21 +64,21 @@ void Menu::popSubMenu()
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Menu::setSubMenuEntry(size_t idx, std::string const& entry)
+Menu::Entry& Menu::getSubMenuEntry(size_t idx)
 {
+    m_emptyEntry = Entry();
     if (m_subMenus.empty() || m_crtSubMenuIdx >= m_subMenus.size())
     {
-        return;
+        return m_emptyEntry;
     }
 
     SubMenu& crtSubMenu = m_subMenus[m_crtSubMenuIdx];
-
     if (idx >= crtSubMenu.entries.size())
     {
-        return;
+        return m_emptyEntry;
     }
 
-    crtSubMenu.entries[idx] = entry;
+    return crtSubMenu.entries[idx];
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -157,9 +157,9 @@ void Menu::render(Adafruit_GFX& display, SubMenu& subMenu, size_t maxEntries)
 
     if (subMenu.maxLineH == 0)
     {
-        for (const std::string& entry: subMenu.entries)
+        for (const Entry& entry: subMenu.entries)
         {
-            subMenu.maxLineH = std::max(subMenu.maxLineH, display.getTextHeight(entry.c_str()));
+            subMenu.maxLineH = std::max(subMenu.maxLineH, display.getTextHeight(entry.text.c_str()));
         }
     }
 
@@ -225,7 +225,7 @@ void Menu::render(Adafruit_GFX& display, SubMenu& subMenu, size_t maxEntries)
             display.setTextColor(k_unselectedColor);
         }
         display.setCursor(x + 8, y);
-        display.print(subMenu.entries[entryIdx].c_str());
+        display.print(subMenu.entries[entryIdx].text.c_str());
         y += entryH;
     }
 

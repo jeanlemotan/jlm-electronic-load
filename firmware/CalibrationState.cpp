@@ -101,27 +101,27 @@ static void refreshSubMenu()
 	if (s_menuSection == MenuSection::DAC)
 	{
 		sprintf(buf, "DAC: %d%%", int(getDAC() * 100.f));
-		s_menu.setSubMenuEntry(1, buf);
+		s_menu.getSubMenuEntry(1) = buf;
 		sprintf(buf, "Current: %f", getCurrent());
-		s_menu.setSubMenuEntry(2, buf);
+		s_menu.getSubMenuEntry(2) = buf;
 	}
 	else
 	{
 		sprintf(buf, "Raw: %.5f %s", s_raw, getUnit());
-		s_menu.setSubMenuEntry(1, buf);
+		s_menu.getSubMenuEntry(1) = buf;
 
 		sprintf(buf, "Range: %d %s", s_range, s_menuSection == MenuSection::Temperature ? "(locked)" : "");
-		s_menu.setSubMenuEntry(2, buf);
+		s_menu.getSubMenuEntry(2) = buf;
 		
 		sprintf(buf, "Ref1: %.4f %s", s_ref1, getUnit());
-		s_menu.setSubMenuEntry(3, buf);
+		s_menu.getSubMenuEntry(3) = buf;
 		sprintf(buf, "Ref2: %.4f %s", s_ref2, getUnit());
-		s_menu.setSubMenuEntry(4, buf);
+		s_menu.getSubMenuEntry(4) = buf;
 
 		sprintf(buf, "Calibrate 1st");
-		s_menu.setSubMenuEntry(5, buf);
+		s_menu.getSubMenuEntry(5) = buf;
 		sprintf(buf, "Calibrate 2nd");
-		s_menu.setSubMenuEntry(6, buf);
+		s_menu.getSubMenuEntry(6) = buf;
 	}
 }
 
@@ -373,12 +373,12 @@ static void process2PointSection()
 		if (s_sampleCount > 0)
 		{
 			sprintf(buf, "*** %d: %.5f", s_sampleCount, s_total / (float)s_sampleCount);
-			s_menu.setSubMenuEntry(5, buf);
+			s_menu.getSubMenuEntry(5) = buf;
 		}
 		else
 		{
 			sprintf(buf, "Waiting...");
-			s_menu.setSubMenuEntry(5, buf);
+			s_menu.getSubMenuEntry(5) = buf;
 		}
 
 		if (s_sampleCount > 20)
@@ -402,12 +402,12 @@ static void process2PointSection()
 		if (s_sampleCount > 0)
 		{
 			sprintf(buf, "*** %d: %.5f", s_sampleCount, s_total / (float)s_sampleCount);
-			s_menu.setSubMenuEntry(6, buf);
+			s_menu.getSubMenuEntry(6) = buf;
 		}
 		else
 		{
 			sprintf(buf, "Waiting...");
-			s_menu.setSubMenuEntry(6, buf);
+			s_menu.getSubMenuEntry(6) = buf;
 		}
 		if (s_sampleCount > 20)
 		{

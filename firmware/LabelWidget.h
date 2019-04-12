@@ -10,9 +10,9 @@ public:
 	void setFont(const GFXfont* font);
 	void setTextColor(uint16_t color);
 	void setTextScale(uint8_t scale);
-	void setPosition(int16_t x, int16_t y) override;
-	int16_t getX() const override;
-	int16_t getY() const override;
+	void setUseContentHeight(bool enabled);
+	void setPosition(const Position& position, Anchor anchor = Anchor::TopLeft) override;
+	Position getPosition(Anchor anchor = Anchor::TopLeft) const override;
 	int16_t getWidth() const override;
 	int16_t getHeight() const override;
 	void render() override;
@@ -29,15 +29,15 @@ private:
 	char m_value[32] = { 0 };
 	enum DirtyFlags
 	{
-		DirtyFlagRender = 1 << 0,
-		DirtyFlagGeometry = 1 << 1
+		DirtyFlagGeometry = 1 << 0
 	};
 	mutable uint8_t m_dirtyFlags = 0xFF;
 	uint8_t m_textScale = 1;
-	int16_t m_x = 0;
-	int16_t m_y = 0;
+	Position m_position;
 	mutable int16_t m_w = 0;
 	mutable int16_t m_h = 0;
+	mutable int16_t m_ch = 0;
+	bool m_useContentHeight = false;
 	bool m_isSelected = false;
 	uint16_t m_textColor = 0xFFFF;
 };

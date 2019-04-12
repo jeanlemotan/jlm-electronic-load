@@ -17,19 +17,37 @@ public:
     static constexpr uint16_t k_selectedColor = 0xAAAA;
     static constexpr uint16_t k_unselectedColor = 0xFFFF;
 
-    void pushSubMenu(std::vector<std::string> const& entries, size_t selected, int16_t y);
+    enum Flags : uint8_t
+    {
+        FlagDisabled = 1 << 0,
+    };
+
+    struct Entry
+    {
+        Entry() = default;
+        Entry(const char* text) : text(text) {}
+        Entry(std::string text) : text(std::move(text)) {}
+        Entry(const char* text, uint16_t color) : text(text), color(color) {}
+        Entry(std::string text, uint16_t color) : text(std::move(text)), color(color) {}
+        std::string text;
+        uint16_t color = 0xFFFF;
+        uint8_t flags = 0;
+    };
+
+    void pushSubMenu(std::vector<Entry> entries, size_t selected, int16_t y);
     void popSubMenu();
 
-    void setSubMenuEntry(size_t idx, std::string const& entry);
+    Entry& getSubMenuEntry(size_t idx);
 
     size_t process(AiEsp32RotaryEncoder& knob);
 
     void render(Adafruit_GFX& display, size_t maxEntries);
 
 private:
+    Entry m_emptyEntry;
     struct SubMenu
     {
-        std::vector<std::string> entries;
+        std::vector<Entry> entries;
         size_t crtEntry = 0;
         size_t topEntry = 0;
         int16_t x = 0;

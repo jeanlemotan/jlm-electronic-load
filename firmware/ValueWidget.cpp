@@ -9,20 +9,17 @@ ValueWidget::ValueWidget(Adafruit_GFX& gfx, float value, const char* suffix)
 void ValueWidget::setValueFont(const GFXfont* font)
 {
 	m_valueFont = font;
-	m_dirtyFlags |= DirtyFlagRender;
 	m_dirtyFlags |= DirtyFlagGeometry;
 }
 void ValueWidget::setSuffixFont(const GFXfont* font)
 {
 	m_suffixFont = font;
-	m_dirtyFlags |= DirtyFlagRender;
 	m_dirtyFlags |= DirtyFlagGeometry;
 }
 
 void ValueWidget::setSuffix(const char* suffix)
 {
 	strcpy(m_suffix, suffix);
-	m_dirtyFlags |= DirtyFlagRender;
 	m_dirtyFlags |= DirtyFlagGeometry;
 }
 void ValueWidget::setDecimals(uint8_t decimals)
@@ -30,7 +27,6 @@ void ValueWidget::setDecimals(uint8_t decimals)
 	if (m_decimals != decimals)
 	{
 		m_decimals = decimals;
-		m_dirtyFlags |= DirtyFlagRender;
 		m_dirtyFlags |= DirtyFlagGeometry;
 	}	
 }
@@ -41,12 +37,16 @@ void ValueWidget::setLimits(float minLimit, float maxLimit)
 	m_max = maxLimit;
 	setValue(m_value);
 }
+void ValueWidget::setTextColor(uint16_t color)
+{
+	setValueColor(color);
+	setSuffixColor(color);
+}
 void ValueWidget::setValueColor(uint16_t color)
 {
 	if (m_valueColor != color)
 	{
 		m_valueColor = color;
-		m_dirtyFlags |= DirtyFlagRender;
 	}
 }
 void ValueWidget::setSuffixColor(uint16_t color)
@@ -54,7 +54,6 @@ void ValueWidget::setSuffixColor(uint16_t color)
 	if (m_suffixColor != color)
 	{
 		m_suffixColor = color;
-		m_dirtyFlags |= DirtyFlagRender;
 	}
 }
 
@@ -63,19 +62,74 @@ void ValueWidget::setTextScale(uint8_t scale)
 	if (m_textScale != scale)
 	{
 		m_textScale = scale;
-		m_dirtyFlags |= DirtyFlagRender;
 		m_dirtyFlags |= DirtyFlagGeometry;
 	}
 }
-void ValueWidget::setPosition(int16_t x, int16_t y)
+void ValueWidget::setUseContentHeight(bool enabled)
 {
-	if (m_x != x || m_y != y)
+	if (m_useContentHeight != enabled)
 	{
-		m_x = x;
-		m_y = y;
-		m_dirtyFlags |= DirtyFlagRender;
+		m_useContentHeight = enabled;
 		m_dirtyFlags |= DirtyFlagGeometry;
 	}
+}
+void ValueWidget::setUsePadding(bool enabled)
+{
+	if (m_usePadding != enabled)
+	{
+		m_usePadding = enabled;
+		m_dirtyFlags |= DirtyFlagGeometry;
+	}
+}
+void ValueWidget::setHorizontalAlignment(HorizontalAlignment alignment)
+{
+	m_horizontalAlignment = alignment;
+}
+void ValueWidget::setPosition(const Position& position, Anchor anchor)
+{
+	m_position = position;
+	m_anchor = anchor;
+}
+Widget::Position ValueWidget::computeBottomLeftPosition() const
+{
+	int16_t x = m_position.x;
+	int16_t y = m_position.y;
+	int16_t w = getWidth();
+	int16_t h = getHeight();
+	switch (m_anchor)
+	{
+		case Anchor::TopLeft: 
+		y += h;
+		break;
+		case Anchor::TopRight: 
+		x -= w;
+		y += h;
+		break;
+		case Anchor::BottomLeft: 
+		break;
+		case Anchor::BottomRight: 
+		x -= w;
+		break;
+		case Anchor::TopCenter: 
+		x -= w / 2;
+		y += h;
+		break;
+		case Anchor::BottomCenter: 
+		x -= w / 2;
+		break;
+		case Anchor::CenterLeft: 
+		y += h / 2;
+		break;
+		case Anchor::CenterRight: 
+		x -= w;
+		y += h / 2;
+		break;
+		case Anchor::Center:
+		x -= w / 2;
+		y += h / 2;
+		break;
+	}
+	return Position(x, y);
 }
 int16_t ValueWidget::getWidth() const
 {
@@ -85,26 +139,34 @@ int16_t ValueWidget::getWidth() const
 int16_t ValueWidget::getHeight() const
 {
 	updateGeometry();
-	return m_h;
+	return m_useContentHeight ? m_ch : m_h;
 }
-int16_t ValueWidget::getX() const
+Widget::Position ValueWidget::getPosition(Anchor anchor) const
 {
-	return m_x;
+	Position position = computeBottomLeftPosition();
+	int16_t w = getWidth();
+	int16_t h = getHeight();
+	switch (anchor)
+	{
+		case Anchor::TopLeft: 		return Position{position.x, position.y - h};
+		case Anchor::TopRight: 		return Position{position.x + w, position.y - h};
+		case Anchor::BottomLeft: 	return Position{position.x, position.y};
+		case Anchor::BottomRight: 	return Position{position.x + w, position.y};
+		case Anchor::TopCenter: 	return Position{position.x + w / 2, position.y - h};
+		case Anchor::BottomCenter: 	return Position{position.x + w / 2, position.y};
+		case Anchor::CenterLeft: 	return Position{position.x, position.y - h / 2};
+		case Anchor::CenterRight: 	return Position{position.x + w, position.y - h / 2};
+		case Anchor::Center:		return Position{position.x + w / 2, position.y - h / 2};
+	}	
+	return position;
 }
-int16_t ValueWidget::getY() const
-{
-	return m_y;
-}
+
 
 void ValueWidget::render()
 {
-	const GFXfont* oldFont = m_gfx.getFont();
+	updateGeometry();
 
-	if ((m_dirtyFlags & DirtyFlagRender) == 0)
-	{
-		//return;
-	}
-	m_dirtyFlags &= ~DirtyFlagRender;
+	const GFXfont* oldFont = m_gfx.getFont();
 
 	m_gfx.setTextColor(m_valueColor);
 	m_gfx.setTextSize(m_textScale);
@@ -113,13 +175,10 @@ void ValueWidget::render()
 	char str[16];
 	valueToString(str);
 
-	int16_t x = m_x;
-	if (m_value >= 0)
-	{
-		x += m_gfx.getCharWidth('-', true);
-	}
+	Position position = computeBottomLeftPosition();
+	int16_t x = m_horizontalAlignment == HorizontalAlignment::Left ? position.x : position.x + m_w - m_cw;
 	//printf("X: '%s', %d, %d, %d\n", str, m_x, x, m_gfx.getTextWidth(str));
-	m_gfx.setCursor(x, m_y);
+	m_gfx.setCursor(x, position.y);
 	m_gfx.print(str);
 	if (m_suffix[0] != '\0')
 	{
@@ -135,7 +194,6 @@ void ValueWidget::setSelected(bool selected)
 	if (m_isSelected != selected)
 	{
 		m_isSelected = selected;
-		m_dirtyFlags |= DirtyFlagRender;
 	}
 }
 bool ValueWidget::isSelected() const
@@ -154,7 +212,6 @@ void ValueWidget::setValue(float value)
 	if (m_value != value)
 	{
 		m_value = value;
-		m_dirtyFlags |= DirtyFlagRender;
 		m_dirtyFlags |= DirtyFlagGeometry;
 	}
 }
@@ -185,23 +242,44 @@ void ValueWidget::updateGeometry() const
 
 	const GFXfont* oldFont = m_gfx.getFont();
 
-	char str[16];
-	if (m_value < 0)
+	char str[16] = { '\0' };
+	size_t offset = 0;
+
+	if (m_usePadding)
 	{
-		valueToString(str);
+		float maxAbsValue = std::max(m_max, std::abs(m_min));
+		{
+			int usedDigits = std::max((int)std::log10(std::abs(m_value)), 0) + 1;
+			int maxDigits = std::max((int)std::log10(maxAbsValue), 0) + 1;
+			if (maxDigits > usedDigits)
+			{
+				for (int i = 0; i < maxDigits - usedDigits; i++)
+				{
+					str[offset++] = '0';
+				}
+			}
+		}
+		if (m_value < 0 && m_min < 0) //reserve space for '-' if the value can also go negative
+		{
+			str[0] = '-';
+			offset++;
+		}
 	}
-	else
-	{
-		str[0] = '-';
-		valueToString(str + 1);	
-	}
+
+	size_t contentOffset = offset;
+	valueToString(str + offset);
 	int16_t x, y;
 	uint16_t w, h;
 	m_gfx.setTextSize(m_textScale);
 	m_gfx.setFont(m_valueFont);
+	m_gfx.getTextBounds(str + contentOffset, 0, 0, &x, &y, &w, &h);
+	m_cw = x + w;
+	m_ch = h;
+
 	m_gfx.getTextBounds(str, 0, 0, &x, &y, &w, &h);
-	m_w = w;
+	m_w = x + w;
 	m_h = h;
+
 	if (m_valueFont)
 	{
 		m_h = m_valueFont->yAdvance;
@@ -210,7 +288,9 @@ void ValueWidget::updateGeometry() const
 	{
 		m_gfx.setFont(m_suffixFont);
 		m_gfx.getTextBounds(m_suffix, 0, 0, &x, &y, &w, &h);
-		m_w += w;
+		m_ch = std::max<int16_t>(m_ch, h);
+		m_cw += x + w;
+		m_w += x + w;
 		if (m_suffixFont)
 		{
 			m_h = std::max<int16_t>(m_h, m_suffixFont->yAdvance);

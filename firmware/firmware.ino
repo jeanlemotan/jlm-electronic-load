@@ -115,7 +115,7 @@ void setup()
   pwmInit();
 
   s_adc.begin();
-  s_adc.set_data_rate(ADS1115_DATA_RATE_16_SPS);
+  s_adc.set_data_rate(ADS1115_DATA_RATE_8_SPS);
   s_adc.set_mode(ADS1115_MODE_SINGLE_SHOT);
   s_adc.set_mux(ADS1115_MUX_GND_AIN0); //switch to voltage pair
   s_adc.set_pga(ADS1115_PGA_SIXTEEN);
@@ -152,17 +152,17 @@ void setup()
   s_knob.setBoundaries(-10000, 10000);
   s_knob.reset();
 
+  s_windowY = SansSerif_bold_10.yAdvance + 3;  
+
   initMeasurementState();
   initCalibrationState();
 
   loadSettings(s_settings);
   //saveSettings(s_settings);
 
-  s_windowY = SansSerif_bold_10.yAdvance;  
-
   s_modeWidget.setTextScale(1);
   s_modeWidget.setTextColor(0x0);
-  s_modeWidget.setPosition(3, s_windowY - 3);
+  s_modeWidget.setPosition(Widget::Position{3, 0});
   s_modeWidget.setFont(&SansSerif_bold_10);
 
   s_temperatureWidget.setTextScale(1);
@@ -252,7 +252,7 @@ void loop()
 
   //Temperature
   s_temperatureWidget.setValue(getTemperature());
-  s_temperatureWidget.setPosition(s_canvas.width() - s_temperatureWidget.getWidth() - 5, s_windowY - 3);
+  s_temperatureWidget.setPosition(Widget::Position{s_canvas.width() - s_temperatureWidget.getWidth() - 5, 0});
   s_temperatureWidget.render();
 
   if (s_touchscreen.touched())
