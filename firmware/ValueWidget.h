@@ -1,9 +1,9 @@
 #pragma once
 
 #include "Adafruit_GFX.h"
-#include "Widget.h"
+#include "WidgetBase.h"
 
-class ValueWidget : public Widget
+class ValueWidget : public WidgetBase
 {
 public:
 	ValueWidget(Adafruit_GFX& gfx, float value, const char* suffix);
@@ -26,22 +26,16 @@ public:
 	};
 	void setHorizontalAlignment(HorizontalAlignment alignment);
 
-	void setPosition(const Position& position, Anchor anchor = Anchor::TopLeft) override;
-	Position getPosition(Anchor anchor = Anchor::TopLeft) const override;
 	int16_t getWidth() const override;
 	int16_t getHeight() const override;
 	void render() override;
-	void setSelected(bool selected) override;
-	bool isSelected() const override;
 	void setValue(float value);
 	float getValue() const;
 
 private:
-	Position computeBottomLeftPosition() const;
 	void updateGeometry() const;
 	void valueToString(char* str) const;
 
-	Adafruit_GFX& m_gfx;
 	const GFXfont* m_valueFont = nullptr;
 	const GFXfont* m_suffixFont = nullptr;
 
@@ -53,8 +47,6 @@ private:
 	mutable uint8_t m_dirtyFlags = 0xFF;
 	uint8_t m_textScale = 1;
 	uint8_t m_decimals = 3;
-	Position m_position;
-	Anchor m_anchor = Anchor::TopLeft;
 	mutable int16_t m_w = 0;
 	mutable int16_t m_h = 0;
 	mutable int16_t m_cw = 0;
@@ -65,7 +57,6 @@ private:
 	float m_value = 0;
 	float m_min = -999999999.f;
 	float m_max = 999999999.f;
-	bool m_isSelected = false;
 	uint16_t m_valueColor = 0xFFFF;
 	uint16_t m_suffixColor = 0xFFFF;
 };

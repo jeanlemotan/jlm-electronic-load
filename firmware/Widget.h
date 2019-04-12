@@ -28,8 +28,6 @@ public:
 	};
 
 	virtual void render() = 0;
-	virtual void setSelected(bool selected) = 0;
-	virtual bool isSelected() const = 0;
 	virtual int16_t getWidth() const = 0;
 	virtual int16_t getHeight() const = 0;
 	virtual void setPosition(const Position& position, Anchor anchor = Anchor::TopLeft) = 0;

@@ -1,7 +1,7 @@
 #include "ValueWidget.h"
 
 ValueWidget::ValueWidget(Adafruit_GFX& gfx, float value, const char* suffix)
-	: m_gfx(gfx)
+	: WidgetBase(gfx)
 	, m_value(value)
 {
 	strcpy(m_suffix, suffix);
@@ -85,52 +85,6 @@ void ValueWidget::setHorizontalAlignment(HorizontalAlignment alignment)
 {
 	m_horizontalAlignment = alignment;
 }
-void ValueWidget::setPosition(const Position& position, Anchor anchor)
-{
-	m_position = position;
-	m_anchor = anchor;
-}
-Widget::Position ValueWidget::computeBottomLeftPosition() const
-{
-	int16_t x = m_position.x;
-	int16_t y = m_position.y;
-	int16_t w = getWidth();
-	int16_t h = getHeight();
-	switch (m_anchor)
-	{
-		case Anchor::TopLeft: 
-		y += h;
-		break;
-		case Anchor::TopRight: 
-		x -= w;
-		y += h;
-		break;
-		case Anchor::BottomLeft: 
-		break;
-		case Anchor::BottomRight: 
-		x -= w;
-		break;
-		case Anchor::TopCenter: 
-		x -= w / 2;
-		y += h;
-		break;
-		case Anchor::BottomCenter: 
-		x -= w / 2;
-		break;
-		case Anchor::CenterLeft: 
-		y += h / 2;
-		break;
-		case Anchor::CenterRight: 
-		x -= w;
-		y += h / 2;
-		break;
-		case Anchor::Center:
-		x -= w / 2;
-		y += h / 2;
-		break;
-	}
-	return Position(x, y);
-}
 int16_t ValueWidget::getWidth() const
 {
 	updateGeometry();
@@ -141,27 +95,6 @@ int16_t ValueWidget::getHeight() const
 	updateGeometry();
 	return m_useContentHeight ? m_ch : m_h;
 }
-Widget::Position ValueWidget::getPosition(Anchor anchor) const
-{
-	Position position = computeBottomLeftPosition();
-	int16_t w = getWidth();
-	int16_t h = getHeight();
-	switch (anchor)
-	{
-		case Anchor::TopLeft: 		return Position{position.x, position.y - h};
-		case Anchor::TopRight: 		return Position{position.x + w, position.y - h};
-		case Anchor::BottomLeft: 	return Position{position.x, position.y};
-		case Anchor::BottomRight: 	return Position{position.x + w, position.y};
-		case Anchor::TopCenter: 	return Position{position.x + w / 2, position.y - h};
-		case Anchor::BottomCenter: 	return Position{position.x + w / 2, position.y};
-		case Anchor::CenterLeft: 	return Position{position.x, position.y - h / 2};
-		case Anchor::CenterRight: 	return Position{position.x + w, position.y - h / 2};
-		case Anchor::Center:		return Position{position.x + w / 2, position.y - h / 2};
-	}	
-	return position;
-}
-
-
 void ValueWidget::render()
 {
 	updateGeometry();
@@ -188,17 +121,6 @@ void ValueWidget::render()
 	}
 
 	m_gfx.setFont(oldFont);
-}
-void ValueWidget::setSelected(bool selected)
-{
-	if (m_isSelected != selected)
-	{
-		m_isSelected = selected;
-	}
-}
-bool ValueWidget::isSelected() const
-{
-	return m_isSelected;
 }
 void ValueWidget::setValue(float value)
 {

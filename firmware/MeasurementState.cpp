@@ -1,6 +1,7 @@
 #include "MeasurementState.h"
 #include "ValueWidget.h"
 #include "LabelWidget.h"
+#include "GraphWidget.h"
 #include "Settings.h"
 #include "ADS1115.h"
 #include "DAC8571.h"
@@ -40,18 +41,27 @@ static ValueWidget s_powerWidget(s_canvas, 0.f, "W");
 static ValueWidget s_energyWidget(s_canvas, 0.f, "Wh");
 static ValueWidget s_chargeWidget(s_canvas, 0.f, "Ah");
 static LabelWidget s_timerWidget(s_canvas, "00:00:00");
+static GraphWidget s_graphWidget(s_canvas, 512);
+
+
 
 static LabelWidget s_targetLabelWidget(s_canvas, "Target:");
 static ValueWidget s_targetWidget(s_canvas, 0.f, "Ah");
 
 static uint16_t k_voltageColor = 0x05D2;
 static uint16_t k_currentColor = 0x0C3C;
-static uint16_t k_resistanceColor = 0x0C3C;
+static uint16_t k_resistanceColor = 0xFE4D;
 static uint16_t k_powerColor = 0xFBAE;
-static uint16_t k_timerColor = 0xFE4D;
+static uint16_t k_timerColor = 0xFFFF;
 static uint16_t k_chargeColor = 0x6AFC;
 static uint16_t k_energyColor = 0xD186;
 
+static uint8_t s_voltagePlot = 0;
+static uint8_t s_currentPlot = 0;
+static uint8_t s_powerPlot = 0;
+static uint8_t s_resistancePlot = 0;
+static uint8_t s_energyPlot = 0;
+static uint8_t s_chargePlot = 0;
 
 static Menu s_menu;
 enum class MenuSection
@@ -69,6 +79,7 @@ static float s_voltageRaw = 0.f;
 static float s_current = 0.f;
 static float s_voltage = 0.f;
 static bool s_loadEnabled = false;
+static uint32_t s_loadEnabledTP = 0;
 static float s_targetCurrent = 0.f;
 static float s_targetPower = 0.f;
 static float s_targetResistance = 0.f;
@@ -310,6 +321,7 @@ float getDAC()
 void setLoadEnabled(bool enabled)
 {
 	s_loadEnabled = enabled;
+	s_loadEnabledTP = millis();
 	setDAC(s_dacValue);
 }
 bool isLoadEnabled()
@@ -722,6 +734,17 @@ void processMeasurementState()
 	s_targetLabelWidget.render();
 	s_targetWidget.render();
 
+	if (isLoadEnabled() && millis() >= s_loadEnabledTP + 1000) //skip a few samples
+	{
+		s_graphWidget.addValue(s_voltagePlot, s_timer, s_voltage, true);
+		s_graphWidget.addValue(s_currentPlot, s_timer, s_current, true);
+		s_graphWidget.addValue(s_powerPlot, s_timer, power, true);
+		s_graphWidget.addValue(s_resistancePlot, s_timer, resistance, true);
+		//s_graphWidget.addValue(s_energyPlot, s_timer, energy, true);
+		//s_graphWidget.addValue(s_chargePlot, s_timer, charge, true);
+	}
+	s_graphWidget.render();
+
 	if (s_menuSection != MenuSection::Disabled)
 	{
 		s_menu.render(s_canvas, 0);
@@ -765,7 +788,7 @@ void processMeasurementState()
 
 	if (isLoadEnabled() || isRunningProgram())
 	{
-		printOutput();
+		//printOutput();
 	}
 }
 
@@ -832,13 +855,12 @@ void initMeasurementState()
 	s_timerWidget.setUseContentHeight(true);
 	s_timerWidget.setTextColor(k_timerColor);
 	s_timerWidget.setFont(&SansSerif_bold_28);
-  	s_timerWidget.setPosition(Widget::Position{xSpacing, s_chargeWidget.getPosition(Widget::Anchor::BottomLeft).y}.move(0, ySpacing * 3), Widget::Anchor::TopLeft);
-
+  	s_timerWidget.setPosition(Widget::Position{xSpacing, s_chargeWidget.getPosition(Widget::Anchor::BottomLeft).y}.move(0, ySpacing * 2), Widget::Anchor::TopLeft);
 
 	s_targetLabelWidget.setUseContentHeight(true);
 	s_targetLabelWidget.setTextColor(0);
 	s_targetLabelWidget.setFont(&SansSerif_bold_10);
-  	s_targetLabelWidget.setPosition(Widget::Position{s_canvas.width() - xSpacing, s_chargeWidget.getPosition(Widget::Anchor::BottomLeft).y}.move(0, ySpacing * 3), Widget::Anchor::TopRight);
+  	s_targetLabelWidget.setPosition(Widget::Position{s_canvas.width() - xSpacing, s_chargeWidget.getPosition(Widget::Anchor::BottomLeft).y}.move(0, ySpacing * 2), Widget::Anchor::TopRight);
 
 	s_targetWidget.setUseContentHeight(true);
 	s_targetWidget.setLimits(0, 999.9999f);
@@ -851,6 +873,15 @@ void initMeasurementState()
 
 	s_modeWidget.setFont(&SansSerif_bold_13);
 	s_modeWidget.setPosition(Widget::Position{0, s_windowY - 3});
+
+	s_graphWidget.setPosition(Widget::Position{0, s_timerWidget.getPosition(Widget::Anchor::BottomLeft).y}.move(0, ySpacing * 3), Widget::Anchor::TopLeft);
+	s_graphWidget.setSize(s_canvas.width(), s_canvas.height() - s_graphWidget.getPosition().y - 1);
+	s_voltagePlot = s_graphWidget.addPlot("V", k_voltageColor, 0.01f);
+	s_currentPlot = s_graphWidget.addPlot("A", k_currentColor, 0.01f);
+	s_powerPlot = s_graphWidget.addPlot("W", k_powerColor, 0.01f);
+	s_resistancePlot = s_graphWidget.addPlot("{", k_resistanceColor, 0.01f);
+	s_energyPlot = s_graphWidget.addPlot("Wh", k_energyColor, 0.00000001f);
+	s_chargePlot = s_graphWidget.addPlot("Ah", k_chargeColor, 0.00000001f);
 
 	//s_rangeWidget.setFont(&SansSerif_bold_13);
 }

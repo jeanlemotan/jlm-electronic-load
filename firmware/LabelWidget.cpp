@@ -1,7 +1,7 @@
 #include "LabelWidget.h"
 
 LabelWidget::LabelWidget(Adafruit_GFX& gfx, const char* value)
-	: m_gfx(gfx)
+	: WidgetBase(gfx)
 {
 	if (value)
 	{
@@ -37,52 +37,6 @@ void LabelWidget::setUseContentHeight(bool enabled)
 		m_dirtyFlags |= DirtyFlagGeometry;
 	}
 }
-void LabelWidget::setPosition(const Position& position, Anchor anchor)
-{
-	int16_t x = position.x;
-	int16_t y = position.y;
-	int16_t w = getWidth();
-	int16_t h = getHeight();
-	switch (anchor)
-	{
-		case Anchor::TopLeft: 
-		y += h;
-		break;
-		case Anchor::TopRight: 
-		x -= w;
-		y += h;
-		break;
-		case Anchor::BottomLeft: 
-		break;
-		case Anchor::BottomRight: 
-		x -= w;
-		break;
-		case Anchor::TopCenter: 
-		x -= w / 2;
-		y += h;
-		break;
-		case Anchor::BottomCenter: 
-		x -= w / 2;
-		break;
-		case Anchor::CenterLeft: 
-		y += h / 2;
-		break;
-		case Anchor::CenterRight: 
-		x -= w;
-		y += h / 2;
-		break;
-		case Anchor::Center:
-		x -= w / 2;
-		y += h / 2;
-		break;
-	}
-
-	if (m_position.x != x || m_position.y != y)
-	{
-		m_position.x = x;
-		m_position.y = y;
-	}
-}
 int16_t LabelWidget::getWidth() const
 {
 	updateGeometry();
@@ -93,45 +47,16 @@ int16_t LabelWidget::getHeight() const
 	updateGeometry();
 	return m_useContentHeight ? m_ch : m_h;
 }
-Widget::Position LabelWidget::getPosition(Anchor anchor) const
-{
-	int16_t w = getWidth();
-	int16_t h = getHeight();
-	switch (anchor)
-	{
-		case Anchor::TopLeft: 		return Position{m_position.x, m_position.y - h};
-		case Anchor::TopRight: 		return Position{m_position.x + w, m_position.y - h};
-		case Anchor::BottomLeft: 	return Position{m_position.x, m_position.y};
-		case Anchor::BottomRight: 	return Position{m_position.x + w, m_position.y};
-		case Anchor::TopCenter: 	return Position{m_position.x + w / 2, m_position.y - h};
-		case Anchor::BottomCenter: 	return Position{m_position.x + w / 2, m_position.y};
-		case Anchor::CenterLeft: 	return Position{m_position.x, m_position.y - h / 2};
-		case Anchor::CenterRight: 	return Position{m_position.x + w, m_position.y - h / 2};
-		case Anchor::Center:		return Position{m_position.x + w / 2, m_position.y - h / 2};
-	}	
-	return m_position;
-}
-
 void LabelWidget::render()
 {
+	Position position = computeBottomLeftPosition();
 	const GFXfont* oldFont = m_gfx.getFont();
 	m_gfx.setFont(m_font);
 	m_gfx.setTextColor(m_textColor);
 	m_gfx.setTextSize(m_textScale);
-	m_gfx.setCursor(m_position.x, getPosition(Anchor::BottomLeft).y);
+	m_gfx.setCursor(position.x, position.y);
 	m_gfx.print(m_value);
 	m_gfx.setFont(oldFont);
-}
-void LabelWidget::setSelected(bool selected)
-{
-	if (m_isSelected != selected)
-	{
-		m_isSelected = selected;
-	}
-}
-bool LabelWidget::isSelected() const
-{
-	return m_isSelected;
 }
 void LabelWidget::setValue(const char* value)
 {
