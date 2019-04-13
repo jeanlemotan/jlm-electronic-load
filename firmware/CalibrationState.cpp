@@ -3,7 +3,6 @@
 #include "ValueWidget.h"
 #include "LabelWidget.h"
 #include "Settings.h"
-#include "ADS1115.h"
 #include "Adafruit_GFX.h"
 #include "AiEsp32RotaryEncoder.h"
 #include "Menu.h"
@@ -12,7 +11,6 @@
 extern GFXcanvas16 s_canvas;
 extern int16_t s_windowY;
 extern AiEsp32RotaryEncoder s_knob;
-extern ADS1115 s_adc;
 extern Settings s_settings;
 extern Measurement s_measurement;
 
@@ -63,8 +61,9 @@ static const char* getUnit()
 
 static void readData()
 {
-	bool readVoltage, readCurrent, readTemperature;
-	s_measurement.readAdcs(readVoltage, readCurrent, readTemperature);
+	bool readVoltage = false, readCurrent = false, readTemperature = false;
+	//xxx
+	//s_measurement.readAdcs(readVoltage, readCurrent, readTemperature);
 
 	bool read = false;
 	if (s_menuSection == MenuSection::Voltage && readVoltage)
@@ -209,8 +208,8 @@ static void processDACSection()
 		}
 		else if (selection == 2)
 		{
-			saveSettings(s_newSettings);
-			loadSettings(s_newSettings);
+			s_newSettings.save();
+			s_newSettings.load();
 			s_settings = s_newSettings;
 			s_measurement.setSettings(s_settings);
 		}
@@ -229,8 +228,9 @@ static void processDACSection()
 			return;
 		}
 
-		bool readVoltage, readCurrent, readTemperature;
-		s_measurement.readAdcs(readVoltage, readCurrent, readTemperature);
+		bool readVoltage = false, readCurrent = false, readTemperature = false;
+		//xxx
+		//s_measurement.readAdcs(readVoltage, readCurrent, readTemperature);
 		if (readCurrent)
 		{
 			s_sampleSkipCount++;
@@ -255,12 +255,13 @@ static void processDACSection()
 		{
 			s_measurement.setLoadEnabled(false);
 			float value = s_total / (float)s_sampleCount;
-			s_newSettings.dac2CurrentTable[s_dacTableIndex] = value;
+//			s_newSettings.dac2CurrentTable[s_dacTableIndex] = value;
 			ESP_LOGI("Calibration", "DAC index %d: %f", s_dacTableIndex, value);
 			s_total = 0;
 			s_sampleSkipCount = 0;
 			s_sampleCount = 0;
 			s_dacTableIndex++;
+			/*
 			if (s_dacTableIndex >= s_newSettings.dac2CurrentTable.size() || value >= k_maxCurrent)
 			{
 				//s_measurement.setFan(0);
@@ -275,6 +276,7 @@ static void processDACSection()
 				float f = (float)s_dacTableIndex / (float)s_newSettings.dac2CurrentTable.size();
 				s_measurement.setDAC(f * f * f);
 			}
+			*/
 		}
 	}
 	s_menu.render(s_canvas, 0);
@@ -422,18 +424,18 @@ static void process2PointSection()
 
 			if (s_menuSection == MenuSection::Voltage)
 			{
-				s_newSettings.voltageRangeBiases[s_range] = -bias;
-				s_newSettings.voltageRangeScales[s_range] = 1.f / scale;
+				s_newSettings.data.voltageRangeBiases[s_range] = -bias;
+				s_newSettings.data.voltageRangeScales[s_range] = 1.f / scale;
 			}
 			else if (s_menuSection == MenuSection::Current)
 			{
-				s_newSettings.currentRangeBiases[s_range] = -bias;
-				s_newSettings.currentRangeScales[s_range] = 1.f / scale;
+				s_newSettings.data.currentRangeBiases[s_range] = -bias;
+				s_newSettings.data.currentRangeScales[s_range] = 1.f / scale;
 			}
 			else if (s_menuSection == MenuSection::Temperature)
 			{
-				s_newSettings.temperatureBias = -bias;
-				s_newSettings.temperatureScale = 1.f / scale;
+				s_newSettings.data.temperatureBias = -bias;
+				s_newSettings.data.temperatureScale = 1.f / scale;
 			}
 
 			refreshSubMenu();
@@ -444,8 +446,8 @@ static void process2PointSection()
 	}
 	else if (s_selection == 7) //save
 	{
-		saveSettings(s_newSettings);
-		loadSettings(s_newSettings);
+		s_newSettings.save();
+		s_newSettings.load();
 		s_settings = s_newSettings;
 		s_measurement.setSettings(s_settings);
 		s_selection = 0;

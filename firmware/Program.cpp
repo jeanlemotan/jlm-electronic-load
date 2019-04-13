@@ -93,9 +93,9 @@ void compileProgram(const char* code, Program& program)
 				Step step;
 				step.instruction = Step::Instruction::SetCurrent;
 				step.targetCurrent = atof(s);
-				if (step.targetCurrent < 0.f || step.targetCurrent > k_maxCurrent)
+				if (step.targetCurrent < 0.f || step.targetCurrent > Measurement::k_maxCurrent)
 				{
-					printf("Invalid set current %f. Min is 0 and max is %f\n", step.targetCurrent, k_maxCurrent);
+					printf("Invalid set current %f. Min is 0 and max is %f\n", step.targetCurrent, Measurement::k_maxCurrent);
 					ok = false;					
 				}
 				program.steps.push_back(step);

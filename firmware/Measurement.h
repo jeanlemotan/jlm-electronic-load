@@ -4,21 +4,21 @@
 #include "Settings.h"
 #include "Clock.h"
 
-constexpr float k_maxCurrent = 4.f;
-
 class Measurement
 {
 public:
 	Measurement();
 	~Measurement();
 
+	static constexpr float k_maxCurrent = 4.f;
+	static constexpr float k_minResistance = 0.2f;
+	static constexpr float k_maxResistance = 999999999999.f;
+	static constexpr float k_maxPower = 100.f;
+
 	void init();
 	void process();
 
 	void setSettings(Settings settings);
-
-	void readAdcs();
-	void readAdcs(bool& voltage, bool& current, bool& temperature);
 
 	float getCurrent() const;
 	float getCurrentRaw() const;
@@ -79,6 +79,10 @@ public:
 	void setTrackingMode(TrackingMode mode);
 
 private:
+	void _readAdcs();
+	void _readAdcs(bool& voltage, bool& current, bool& temperature);
+	float _computeDACForCurrent(float current) const;
+
 	void _setFan(float fan);
 	void _setDAC(float dac);
 	void _updateTracking();

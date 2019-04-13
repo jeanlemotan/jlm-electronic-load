@@ -2,6 +2,9 @@
 #include "Settings.h"
 #include "ADS1115.h"
 #include "DAC8571.h"
+#define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
+#include "esp_log.h"
+#include <driver/i2c.h>
 #include <driver/adc.h>
 #include <driver/ledc.h>
 #include <algorithm>
@@ -18,19 +21,27 @@ extern "C"
 }
 
 constexpr uint8_t k_4WireGPIO = 16;
-constexpr float k_minTargetResistance = 0.2f;
-constexpr float k_maxResistance = 999999999999.f;
-constexpr float k_maxTargetPower = 100.f;
 
 constexpr uint8_t k_fanGPIO = 17;
 constexpr uint32_t k_fanBits = 12;
 constexpr uint32_t k_fanPrecision = 1 << k_fanBits;
+
+constexpr float k_minDACTrim = -0.01f;
+constexpr float k_maxDACTrim = 0.01f;
+
+constexpr float k_minCurrentTrim = -0.01f;
+constexpr float k_maxCurrentTrim = 0.01f;
 
 enum class ADCMux
 {
 	Current,
 	Voltage
 };
+
+constexpr float Measurement::k_maxCurrent;
+constexpr float Measurement::k_minResistance;
+constexpr float Measurement::k_maxResistance;
+constexpr float Measurement::k_maxPower;
 
 struct Measurement::Impl
 {
@@ -48,9 +59,14 @@ struct Measurement::Impl
 	float resistance = k_maxResistance;
 	bool isLoadEnabled = false;
 	Clock::time_point loadEnabledTP = Clock::time_point(Clock::duration::zero());
-	float targetCurrent = 0.f;
+
+	//the user set targets
+	float targetCurrent = 0.f; 
 	float targetPower = 0.f;
-	float targetResistance = 0.f;
+	float targetResistance = k_minResistance;
+
+	float trackedCurrent = 0.f; //this is the current the load is trying to match
+	float dacTrim = 0.f;
 	float dacValue = 0.f;
 	float fanValue = 0.f;
 	bool is4WireEnabled = false;
@@ -93,13 +109,28 @@ Measurement::~Measurement()
 
 void Measurement::init()
 {
+	{
+	    i2c_config_t conf;
+	    conf.mode = I2C_MODE_MASTER;
+	    conf.sda_io_num = GPIO_NUM_21;
+	    conf.sda_pullup_en = GPIO_PULLUP_DISABLE;
+	    conf.scl_io_num = GPIO_NUM_22;
+	    conf.scl_pullup_en = GPIO_PULLUP_DISABLE;
+	    conf.master.clk_speed = 400000;
+	    i2c_param_config(I2C_NUM_0, &conf);
+	    ESP_ERROR_CHECK(i2c_driver_install(I2C_NUM_0, conf.mode,
+	                              0,
+	                              0, 
+	                              0));
+	}
+
 	ADS1115& adc = m_impl->adc;
   	adc.begin();
   	adc.set_data_rate(ADS1115_DATA_RATE_8_SPS);
   	adc.set_mode(ADS1115_MODE_SINGLE_SHOT);
   	adc.set_mux(ADS1115_MUX_GND_AIN0); //switch to voltage pair
   	adc.set_pga(ADS1115_PGA_SIXTEEN);
-  	if (adc.trigger_sample() != 0)
+  	if (!adc.trigger_sample())
   	{
       	printf("\nADC read trigger failed (ads1115 not connected?)");
   	}
@@ -223,8 +254,8 @@ bool Measurement::is4WireEnabled() const
 }
 void Measurement::_getCurrentBiasScale(float& bias, float& scale) const
 {
-	bias = m_impl->settings.currentRangeBiases[m_impl->currentRange];
-	scale = m_impl->settings.currentRangeScales[m_impl->currentRange];
+	bias = m_impl->settings.data.currentRangeBiases[m_impl->currentRange];
+	scale = m_impl->settings.data.currentRangeScales[m_impl->currentRange];
 }
 float Measurement::_computeCurrent(float raw) const
 {
@@ -244,8 +275,8 @@ float Measurement::getCurrentRaw() const
 }
 void Measurement::_getVoltageBiasScale(float& bias, float& scale) const
 {
-	bias = m_impl->settings.voltageRangeBiases[m_impl->voltageRange];
-	scale = m_impl->settings.voltageRangeScales[m_impl->voltageRange];
+	bias = m_impl->settings.data.voltageRangeBiases[m_impl->voltageRange];
+	scale = m_impl->settings.data.voltageRangeScales[m_impl->voltageRange];
 }
 float Measurement::_computeVoltage(float raw) const
 {
@@ -332,44 +363,7 @@ void Measurement::resetEnergy()
 void Measurement::setTargetCurrent(float target)
 {
 	std::lock_guard<std::mutex> lg(m_impl->mutex);
-	/*
 	m_impl->targetCurrent = std::max(std::min(target, k_maxCurrent), 0.f);
-
-	float scale = 0.138969697f;
-	float bias = 0.007636364f;
-
-	//float desiredCurrent = (dac * 3.3f / float(k_dacPrecision) + bias) * scale;
-
-	m_impl->dac = m_impl->targetCurrent * scale + bias;
-	setDACPWM(m_impl->dac);
-	*/
-	m_impl->targetCurrent = std::max(std::min(target, k_maxCurrent), 0.f);
-	for (size_t i = 1; i < m_impl->settings.dac2CurrentTable.size(); i++)
-	{
-		float c1 = m_impl->settings.dac2CurrentTable[i];
-		if (c1 >= m_impl->targetCurrent)
-		{
-			float c0 = m_impl->settings.dac2CurrentTable[i - 1];
-			float delta = c1 - c0;
-			float mu = 0.f;
-			if (delta > 0)
-			{
-				mu = (m_impl->targetCurrent - c0) / delta;
-			}
-
-			float szf = float(m_impl->settings.dac2CurrentTable.size());
-			float p0 = float(i - 1) / szf;
-			p0 = p0 * p0 * p0;
-			float p1 = float(i) / szf;
-			p1 = p1 * p1 * p1;
-
-			float dac = mu * (p1 - p0) + p0;
-			_setDAC(dac);
-			//ESP_LOGI("XXX", "c0 %f, c1 %f, delta %f, mu %f, p0 %f, p1 %f, dac %f", c0, c1, delta, mu, p0, p1, dac);
-			break;
-		}
-	}
-	//setDAC(0.f);
 }
 float Measurement::getTargetCurrent() const
 {
@@ -379,7 +373,7 @@ float Measurement::getTargetCurrent() const
 void Measurement::setTargetPower(float target)
 {
 	std::lock_guard<std::mutex> lg(m_impl->mutex);
-	m_impl->targetPower = std::min(target, k_maxTargetPower);
+	m_impl->targetPower = std::min(target, k_maxPower);
 }
 float Measurement::getTargetPower() const
 {
@@ -389,7 +383,7 @@ float Measurement::getTargetPower() const
 void Measurement::setTargetResistance(float target)
 {
 	std::lock_guard<std::mutex> lg(m_impl->mutex);
-	m_impl->targetResistance = std::max(target, k_minTargetResistance);
+	m_impl->targetResistance = std::max(target, k_minResistance);
 }
 float Measurement::getTargetResistance() const
 {
@@ -412,7 +406,7 @@ void Measurement::_setDAC(float dac)
 		dac = 0;
 	}
 
-	if (m_impl->dacValue != dac)
+	//if (m_impl->dacValue != dac)
 	{
 		m_impl->dacValue = dac;
 		m_impl->dac.write(uint16_t(dac * 65535.f));
@@ -451,14 +445,14 @@ void Measurement::resetLoadTimer()
 	std::lock_guard<std::mutex> lg(m_impl->mutex);
 	m_impl->loadTimer = Clock::duration::zero();
 }
-void Measurement::readAdcs()
+void Measurement::_readAdcs()
 {
 	bool hasVoltage, hasCurrent, hasTemperature;
-	readAdcs(hasVoltage, hasCurrent, hasTemperature);
+	_readAdcs(hasVoltage, hasCurrent, hasTemperature);
 }
-void Measurement::readAdcs(bool& hasVoltage, bool& hasCurrent, bool& hasTemperature)
+void Measurement::_readAdcs(bool& hasVoltage, bool& hasCurrent, bool& hasTemperature)
 {
-	std::lock_guard<std::mutex> lg(m_impl->mutex);
+	//std::lock_guard<std::mutex> lg(m_impl->mutex);
 
 	ADS1115& adc = m_impl->adc;
 
@@ -557,19 +551,52 @@ void Measurement::setTrackingMode(TrackingMode mode)
 	std::lock_guard<std::mutex> lg(m_impl->mutex);
 	m_impl->trackingMode = mode;
 }
+float Measurement::_computeDACForCurrent(float current) const
+{
+	float dac = (current + m_impl->settings.data.dacBias) * m_impl->settings.data.dacScale;
+	if (current < 0.00001f)
+	{
+		dac = 0;
+	}	
+	return std::max(std::min(dac, 1.f), 0.f);
+}
 void Measurement::_updateTracking()
 {
+	if (!m_impl->isLoadEnabled)
+	{
+		return;
+	}
 
+	if (m_impl->trackingMode == TrackingMode::CC)
+	{
+		m_impl->trackedCurrent = m_impl->targetCurrent;
+	}
+	if (m_impl->trackingMode == TrackingMode::CP)
+	{
+		m_impl->trackedCurrent = m_impl->voltage > 0.0001f ? m_impl->targetPower / m_impl->voltage : k_maxCurrent;
+	}
+	if (m_impl->trackingMode == TrackingMode::CR)
+	{
+		m_impl->trackedCurrent = m_impl->voltage / m_impl->targetResistance;
+	}
+
+	float dac = _computeDACForCurrent(m_impl->trackedCurrent);
+	_setDAC(dac + m_impl->dacTrim);
+
+	float diff = m_impl->trackedCurrent - m_impl->current;
+	diff = std::max(std::min(diff, k_maxCurrentTrim), k_minCurrentTrim);
+	m_impl->dacTrim += diff * 0.01f;
+	m_impl->dacTrim = std::max(std::min(m_impl->dacTrim, k_maxDACTrim), k_minDACTrim);
 }
 void Measurement::_threadProc()
 {
 	while (true)
 	{
 		{
-			bool readVoltage, readCurrent, readTemperature;
-			readAdcs(readVoltage, readCurrent, readTemperature);
-
 			std::lock_guard<std::mutex> lg(m_impl->mutex);
+
+			bool readVoltage, readCurrent, readTemperature;
+			_readAdcs(readVoltage, readCurrent, readTemperature);
 
 			bool enabled = m_impl->isLoadEnabled;
 			float power = m_impl->power;

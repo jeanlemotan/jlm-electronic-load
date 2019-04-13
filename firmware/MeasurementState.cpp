@@ -105,11 +105,15 @@ void printOutput()
 	sampleIndex++;
 }
 
-static int32_t s_targetCurrent_mAh = 0;
+static int32_t s_targetCurrent_mA = 0;
+static int32_t s_targetPower_mW = 0;
+static int32_t s_targetResistance_mO = 0;
 
 static void refreshSubMenu()
 {
 	char buf[32];
+
+	Measurement::TrackingMode mode = s_measurement.getTrackingMode();
 
 	if (s_menuSection == MenuSection::Main)
 	{
@@ -118,13 +122,14 @@ static void refreshSubMenu()
 	}
 	else if (s_menuSection == MenuSection::SetTarget)
 	{
-		sprintf(buf, "Target:> %.3f %s", s_targetCurrent_mAh / 1000.f, "A");
+		sprintf(buf, "Target:>%.3f %s", 
+			(mode == Measurement::TrackingMode::CC ? s_targetCurrent_mA : mode == Measurement::TrackingMode::CP ? s_targetPower_mW : s_targetResistance_mO) / 1000.f,
+			(mode == Measurement::TrackingMode::CC ? "A" : mode == Measurement::TrackingMode::CP ? "W" : "{"));
 		s_menu.getSubMenuEntry(1).text = buf;
 	}
 	sprintf(buf, "4 Wire: %s", s_measurement.is4WireEnabled() ? "On" : "Off");
 	s_menu.getSubMenuEntry(2) = buf;
 
-	Measurement::TrackingMode mode = s_measurement.getTrackingMode();
 	if (mode == Measurement::TrackingMode::None)
 	{
 		sprintf(buf, "Mode: None");
@@ -219,16 +224,39 @@ void processMeasurementState()
 	else if (s_menuSection == MenuSection::SetTarget)
 	{
 		int knobDelta = s_knob.encoderChangedAcc();
-		s_targetCurrent_mAh += knobDelta;
-		s_targetCurrent_mAh = std::max(std::min(s_targetCurrent_mAh, int32_t(k_maxCurrent * 1000.f)), 0);
+		if (mode == Measurement::TrackingMode::CC)
+		{
+			s_targetCurrent_mA += knobDelta;
+			s_targetCurrent_mA = std::max(std::min(s_targetCurrent_mA, int32_t(Measurement::k_maxCurrent * 1000.f)), 0);
+		}
+		else if (mode == Measurement::TrackingMode::CP)
+		{
+			s_targetPower_mW += knobDelta;
+			s_targetPower_mW = std::max(std::min(s_targetPower_mW, int32_t(Measurement::k_maxPower * 1000.f)), 0);
+		}
+		else if (mode == Measurement::TrackingMode::CR)
+		{
+			s_targetResistance_mO += knobDelta;
+			s_targetResistance_mO = std::max(std::min(s_targetResistance_mO, int32_t(Measurement::k_maxResistance * 1000.f)), int32_t(Measurement::k_minResistance * 1000.f));
+		}
+		refreshSubMenu();
 
 		if (s_knob.currentButtonState() == BUT_RELEASED)
 		{
-			s_measurement.setTargetCurrent(s_targetCurrent_mAh / 1000.f);
+			if (mode == Measurement::TrackingMode::CC)
+			{
+				s_measurement.setTargetCurrent(s_targetCurrent_mA / 1000.f);
+			}
+			else if (mode == Measurement::TrackingMode::CP)
+			{
+				s_measurement.setTargetPower(s_targetPower_mW / 1000.f);
+			}
+			else if (mode == Measurement::TrackingMode::CR)
+			{
+				s_measurement.setTargetResistance(s_targetResistance_mO / 1000.f);
+			}
 			s_menuSection = MenuSection::Main;
 		}
-
-		refreshSubMenu();
 	}
 	else if (s_menuSection == MenuSection::Disabled)
 	{
