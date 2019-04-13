@@ -6,7 +6,6 @@
 #include "Settings.h"
 #include "Adafruit_GFX.h"
 #include "AiEsp32RotaryEncoder.h"
-#include "PWM.h"
 #include "Button.h"
 #include <driver/adc.h>
 #include "Program.h"
@@ -26,7 +25,7 @@ extern GFXcanvas16 s_canvas;
 extern int16_t s_windowY;
 extern AiEsp32RotaryEncoder s_knob;
 extern Button s_button;
-extern Settings s_settings;
+extern Measurement s_measurement;
 
 extern LabelWidget s_modeWidget;
 //static LabelWidget s_rangeWidget(s_canvas, "");
@@ -74,8 +73,8 @@ void printOutput()
 	static float currentAcc = 0;
 	static size_t sampleCount = 0;
 
-	voltageAcc += getVoltage();
-	currentAcc += getCurrent();
+	voltageAcc += s_measurement.getVoltage();
+	currentAcc += s_measurement.getCurrent();
 	sampleCount++;
 
 	static int lastTP = millis();
@@ -92,11 +91,11 @@ void printOutput()
 	Serial.print(", ");
 	Serial.print(currentAcc / float(sampleCount), 5);
 	Serial.print(", ");
-	Serial.print(getEnergy(), 5);
+	Serial.print(s_measurement.getEnergy(), 5);
 	Serial.print(", ");
-	Serial.print(getCharge(), 5);
+	Serial.print(s_measurement.getCharge(), 5);
 	Serial.print(", ");
-	Serial.print(getTemperature());
+	Serial.print(s_measurement.getTemperature());
 	Serial.println("");
 
 	sampleCount = 0;
@@ -114,7 +113,7 @@ static void refreshSubMenu()
 
 	if (s_menuSection == MenuSection::Main)
 	{
-		sprintf(buf, "Target: %.3f %s", getTargetCurrent(), "A");
+		sprintf(buf, "Target: %.3f %s", s_measurement.getTargetCurrent(), "A");
 		s_menu.getSubMenuEntry(1).text = buf;
 	}
 	else if (s_menuSection == MenuSection::SetTarget)
@@ -122,11 +121,18 @@ static void refreshSubMenu()
 		sprintf(buf, "Target:> %.3f %s", s_targetCurrent_mAh / 1000.f, "A");
 		s_menu.getSubMenuEntry(1).text = buf;
 	}
-	sprintf(buf, "4 Wire: %s", is4WireEnabled() ? "On" : "Off");
+	sprintf(buf, "4 Wire: %s", s_measurement.is4WireEnabled() ? "On" : "Off");
 	s_menu.getSubMenuEntry(2) = buf;
 
-	TrackingMode mode = getTrackingMode();
-	sprintf(buf, "Mode: %s", mode == TrackingMode::CC ? "CC" : mode == TrackingMode::CP ? "CP" : "CR");
+	Measurement::TrackingMode mode = s_measurement.getTrackingMode();
+	if (mode == Measurement::TrackingMode::None)
+	{
+		sprintf(buf, "Mode: None");
+	}
+	else
+	{
+		sprintf(buf, "Mode: %s", mode == Measurement::TrackingMode::CC ? "CC" : mode == Measurement::TrackingMode::CP ? "CP" : "CR");
+	}
 	s_menu.getSubMenuEntry(3) = buf;
 }
 
@@ -168,12 +174,12 @@ void setUnitValue(ValueWidget& widget, float value, uint8_t decimalsMacro, float
 
 void processMeasurementState()
 {
-	processMeasurement();
-	TrackingMode mode = getTrackingMode();
+	s_measurement.process();
+	Measurement::TrackingMode mode = s_measurement.getTrackingMode();
 
 	if (s_button.state() == Button::State::RELEASED)
 	{
-		setLoadEnabled(!isLoadEnabled());
+		s_measurement.setLoadEnabled(!s_measurement.isLoadEnabled());
 	}
 
 	if (s_menuSection == MenuSection::Main)
@@ -190,16 +196,20 @@ void processMeasurementState()
 		}
 		else if (selection == 2)
 		{
-			set4WireEnabled(~is4WireEnabled());
+			s_measurement.set4WireEnabled(!s_measurement.is4WireEnabled());
 		}
 		else if (selection == 3)
 		{
-			mode = mode == TrackingMode::CC ? TrackingMode::CP : mode == TrackingMode::CP ? TrackingMode::CR : TrackingMode::CC;
-			setTrackingMode(mode);
+			mode = mode == Measurement::TrackingMode::CC ? 
+								Measurement::TrackingMode::CP : 
+								mode == Measurement::TrackingMode::CP ? 
+									Measurement::TrackingMode::CR : 
+									Measurement::TrackingMode::CC;
+			s_measurement.setTrackingMode(mode);
 		}
 		else if (selection == 4)
 		{
-			resetEnergy();
+			s_measurement.resetEnergy();
 		}
 		else if (selection == 6)
 		{
@@ -214,7 +224,7 @@ void processMeasurementState()
 
 		if (s_knob.currentButtonState() == BUT_RELEASED)
 		{
-			setTargetCurrent(s_targetCurrent_mAh / 1000.f);
+			s_measurement.setTargetCurrent(s_targetCurrent_mAh / 1000.f);
 			s_menuSection = MenuSection::Main;
 		}
 
@@ -230,7 +240,7 @@ void processMeasurementState()
 
 
 	//Mode
-	s_modeWidget.setValue(isRunningProgram() ? "Program Mode" : mode == TrackingMode::CC ? "CC Mode" : mode == TrackingMode::CP ? "CP Mode" : "CR Mode");
+	s_modeWidget.setValue(isRunningProgram() ? "Program Mode" : mode == Measurement::TrackingMode::CC ? "CC Mode" : mode == Measurement::TrackingMode::CP ? "CP Mode" : "CR Mode");
 	s_modeWidget.render();
 
 	//char buf[32];
@@ -241,21 +251,21 @@ void processMeasurementState()
 
 	//s_voltageWidget.setValueColor(isVoltageValid() ? 0xFFFF : 0xF000);
 	//s_voltageWidget.setDecimals(s_voltage < 10.f ? 3 : 2);
-	float voltage = getVoltage();
+	float voltage = s_measurement.getVoltage();
 	setUnitValue(s_voltageWidget, voltage, 3, 99.f, 1, 999.999f, "V");
 	s_voltageWidget.render();
 
 	uint16_t trackedColor = 0;
 	int16_t trackedBorderY = 0;
 
-	if (mode == TrackingMode::CC)
+	if (mode == Measurement::TrackingMode::CC)
 	{
 		int16_t border = 3;
 		Widget::Position p = s_currentWidget.getPosition(Widget::Anchor::TopLeft);
 		s_canvas.fillRoundRect(p.x - border, p.y - border, 1000, s_currentWidget.getHeight() + border*2, border, k_currentColor);
 		//s_canvas.fillRect(p.x, p.y, s_currentWidget.getWidth(), s_currentWidget.getHeight(), k_currentColor),
 		s_currentWidget.setTextColor(0x0);
-		setUnitValue(s_targetWidget, getTargetCurrent(), 3, 99.f, 1, 999.999f, "A");
+		setUnitValue(s_targetWidget, s_measurement.getTargetCurrent(), 3, 99.f, 1, 999.999f, "A");
 		trackedColor = k_currentColor;
 		trackedBorderY = p.y;
 	}
@@ -263,17 +273,17 @@ void processMeasurementState()
 	{
 		s_currentWidget.setTextColor(k_currentColor);
 	} 	
-	float current = getCurrent();
+	float current = s_measurement.getCurrent();
 	setUnitValue(s_currentWidget, current, 3, 99.f, 1, 999.999f, "A");
 	s_currentWidget.render();
 
-	if (mode == TrackingMode::CP)
+	if (mode == Measurement::TrackingMode::CP)
 	{
 		int16_t border = 3;
 		Widget::Position p = s_powerWidget.getPosition(Widget::Anchor::TopLeft);
 		s_canvas.fillRoundRect(p.x - border, p.y - border, 1000, s_powerWidget.getHeight() + border*2, border, k_powerColor);
 		s_powerWidget.setTextColor(0x0);
-		setUnitValue(s_targetWidget, getTargetPower(), 3, 999.999f, 1, 999.999f, "W");
+		setUnitValue(s_targetWidget, s_measurement.getTargetPower(), 3, 999.999f, 1, 999.999f, "W");
 		trackedColor = k_powerColor;
 		trackedBorderY = p.y;
 	}
@@ -281,17 +291,17 @@ void processMeasurementState()
 	{
 		s_powerWidget.setTextColor(k_powerColor);
 	}
-	float power = std::abs(voltage * current);
+	float power = s_measurement.getPower();
 	setUnitValue(s_powerWidget, power, 3, 999.999f, 1, 999.999f, "W");
 	s_powerWidget.render();
 
-	if (mode == TrackingMode::CR)
+	if (mode == Measurement::TrackingMode::CR)
 	{
 		int16_t border = 3;
 		Widget::Position p = s_resistanceWidget.getPosition(Widget::Anchor::TopLeft);
 		s_canvas.fillRoundRect(p.x - border, p.y - border, 1000, s_resistanceWidget.getHeight() + border*2, border, k_resistanceColor);
 		s_resistanceWidget.setTextColor(0x0);
-		setUnitValue(s_targetWidget, getTargetResistance(), 3, 999.999f, 1, 999.999f, "{");
+		setUnitValue(s_targetWidget, s_measurement.getTargetResistance(), 3, 999.999f, 1, 999.999f, "{");
 		trackedColor = k_resistanceColor;
 		trackedBorderY = p.y;
 	}
@@ -299,21 +309,21 @@ void processMeasurementState()
 	{
 		s_resistanceWidget.setTextColor(k_resistanceColor);
 	}
-	float resistance = current <= 0.0001f ? 999999999999.f : std::abs(voltage / current);
+	float resistance = s_measurement.getResistance();
 	setUnitValue(s_resistanceWidget, resistance, 3, 999.999f, 1, 999.999f, "{");
 	s_resistanceWidget.render();
 
-	float energy = getEnergy();
+	float energy = s_measurement.getEnergy();
 	setUnitValue(s_energyWidget, energy, 3, 999.999f, 3, 999.999f, "Wh");
 	s_energyWidget.render();
 
-	float charge = getCharge();
+	float charge = s_measurement.getCharge();
 	setUnitValue(s_chargeWidget, charge, 3, 999.999f, 3, 999.999f, "Ah");
 	s_chargeWidget.render();
 
-	Clock::duration loadTimer = getLoadTimer();
+	Clock::duration loadTimer = s_measurement.getLoadTimer();
 
-	if (isLoadEnabled())
+	if (s_measurement.isLoadEnabled())
 	{
 		int16_t border = 3;
 		Widget::Position p = s_timerWidget.getPosition(Widget::Anchor::TopLeft);
@@ -346,7 +356,7 @@ void processMeasurementState()
 	s_targetLabelWidget.render();
 	s_targetWidget.render();
 
-	if (isLoadEnabled() && isLoadSettled()) //skip a few samples
+	if (s_measurement.isLoadEnabled() && s_measurement.isLoadSettled()) //skip a few samples
 	{
 		s_graphWidget.addValue(s_voltagePlot, loadTimer, voltage, true);
 		s_graphWidget.addValue(s_currentPlot, loadTimer, current, true);
@@ -397,7 +407,7 @@ void processMeasurementState()
 */
 	updateProgram();
 
-	if (isLoadEnabled() || isRunningProgram())
+	if (s_measurement.isLoadEnabled() || isRunningProgram())
 	{
 		//printOutput();
 	}
@@ -499,9 +509,9 @@ void initMeasurementState()
 
 void beginMeasurementState()
 {
-	setLoadEnabled(false);
-	setCurrentAutoRanging(true);
-	setVoltageAutoRanging(true);
+	s_measurement.setLoadEnabled(false);
+	s_measurement.setCurrentAutoRanging(true);
+	s_measurement.setVoltageAutoRanging(true);
 
 	s_menu.pushSubMenu({
 	                 /* 0 */"Back",

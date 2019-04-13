@@ -36,7 +36,7 @@ private:
 		std::string name;
 		uint16_t color = 0xFFFF;
 		float minRange = 0.00000001f;
-		Clock::duration timePerUnit = std::chrono::milliseconds(1000);
+		Clock::duration timePerUnit = std::chrono::milliseconds(100);
 		Clock::duration firstTimestamp = Clock::duration::zero();
 		Clock::duration lastTimestamp = Clock::duration::zero();
 		float minValue = 999999;

@@ -4,6 +4,8 @@
 #include "Measurement.h"
 #include <Arduino.h>
 
+extern Measurement s_measurement;
+
 struct Step
 {
 	enum class Instruction
@@ -222,7 +224,7 @@ void runProgram(size_t index)
 void stopProgram()
 {
 	s_stackFrames.clear();
-	setLoadEnabled(false);
+	s_measurement.setLoadEnabled(false);
 }
 
 void popProgram()
@@ -279,10 +281,10 @@ void updateProgram()
 		{
 			if (frame.subStep == 0)
 			{	
-				setTargetCurrent(step.targetCurrent);
+				s_measurement.setTargetCurrent(step.targetCurrent);
 				frame.subStep++;
 			}
-			if (isLoadSettled() || !isLoadEnabled() || millis() > frame.stepStartTP + 100)
+			if (s_measurement.isLoadSettled() || !s_measurement.isLoadEnabled() || millis() > frame.stepStartTP + 100)
 			{
 				setStep(frame, frame.step + 1);
 			}
@@ -292,9 +294,9 @@ void updateProgram()
 		{
 			if (frame.subStep == 0)
 			{
-				setLoadEnabled(true);
+				s_measurement.setLoadEnabled(true);
 			}
-			if (isLoadSettled() || millis() > frame.stepStartTP + 100)
+			if (s_measurement.isLoadSettled() || millis() > frame.stepStartTP + 100)
 			{
 				setStep(frame, frame.step + 1);
 			}
@@ -302,7 +304,7 @@ void updateProgram()
 		break;
 		case Step::Instruction::LoadOff:
 		{
-			setLoadEnabled(false);
+			s_measurement.setLoadEnabled(false);
 			setStep(frame, frame.step + 1);
 		}
 		break;

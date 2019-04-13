@@ -1,5 +1,3 @@
-#include "ADS1115.h"
-#include "DAC8571.h"
 #include "Adafruit_GFX.h"
 #include "Adafruit_SSD1351.h"
 #include "Adafruit_ILI9341.h"
@@ -8,13 +6,11 @@
 #include "Button.h"
 #include "esp_spiffs.h"
 #include <SPI.h>
-#include <driver/adc.h>
 #include <driver/rtc_io.h>
 #include "driver/sdspi_host.h"
 #include "esp_vfs_fat.h"
 #include "esp_err.h"
 #include "sdmmc_cmd.h"
-#include "PWM.h"
 #include "Settings.h"
 #include "ValueWidget.h"
 #include "LabelWidget.h"
@@ -41,18 +37,16 @@ int16_t s_windowY = 0;
 //
 
 AiEsp32RotaryEncoder s_knob(34, 35, 39, -1);
-ADS1115 s_adc;
-DAC8571 s_dac;
 XPT2046_Touchscreen s_touchscreen(27);
 Settings s_settings;
 Button s_button(36);
 
-uint8_t k_4WirePin = 16;
 bool s_sdCardMounted = false;
 
 static ValueWidget s_temperatureWidget(s_canvas, 0.f, "'C");
 LabelWidget s_modeWidget(s_canvas, "");
 
+Measurement s_measurement;
 
 uint8_t s_selection = 0;
 
@@ -110,39 +104,10 @@ void setup()
     }
   }
 
-  //pwm1Configure(PWM1_62k); //DAC PWM
-  //pwm4Configure(PWM4_23k); //POWER PWM
-  //pwm4Set6(128);
-  pwmInit();
-
-  s_adc.begin();
-  s_adc.set_data_rate(ADS1115_DATA_RATE_8_SPS);
-  s_adc.set_mode(ADS1115_MODE_SINGLE_SHOT);
-  s_adc.set_mux(ADS1115_MUX_GND_AIN0); //switch to voltage pair
-  s_adc.set_pga(ADS1115_PGA_SIXTEEN);
-  if (s_adc.trigger_sample() != 0)
-  {
-      Serial.println("adc read trigger failed (ads1115 not connected?)");
-  }
-
-  s_dac.begin();
-  s_dac.write(0);
-
-//  SPI.begin();
-//  SPI.setDataMode(SPI_MODE3);
   s_display.begin(64000000);
   s_display.setRotation(1);
   s_display.fillRect(0, 0, s_display.width(), s_display.height(), 0xFFFF);
   s_display.fillRect(0, 0, s_display.width(), s_display.height(), 0x0);
-
-  {
-    adc1_config_width(ADC_WIDTH_BIT_12);
-    adc1_config_channel_atten(ADC1_CHANNEL_4, ADC_ATTEN_DB_6);
-    //ESP_ERROR_CHECK(gpio_pullup_en(GPIO_NUM_32));
-  }
-
-  pinMode(k_4WirePin, OUTPUT); 
-  //digitalWrite(k_4WirePin, 1);
 
   s_touchscreen.begin();
   s_touchscreen.setRotation(1);
@@ -155,11 +120,12 @@ void setup()
 
   s_windowY = SansSerif_bold_10.yAdvance + 3;  
 
+  loadSettings(s_settings);
+  s_measurement.setSettings(s_settings);
+  s_measurement.init();
+
   initMeasurementState();
   initCalibrationState();
-
-  loadSettings(s_settings);
-  //saveSettings(s_settings);
 
   s_modeWidget.setTextScale(1);
   s_modeWidget.setTextColor(0x0);
@@ -181,7 +147,6 @@ void setup()
   {
     setState(State::Measurement);
   }
-
 }
 
 void processSDCard()
@@ -252,7 +217,7 @@ void loop()
   s_canvas.fillRect(0, 0, s_canvas.width(), s_windowY, 0xFFFF);
 
   //Temperature
-  s_temperatureWidget.setValue(getTemperature());
+  s_temperatureWidget.setValue(s_measurement.getTemperature());
   s_temperatureWidget.setPosition(Widget::Position{s_canvas.width() - s_temperatureWidget.getWidth() - 5, 0});
   s_temperatureWidget.render();
 

@@ -8,13 +8,13 @@
 #include "AiEsp32RotaryEncoder.h"
 #include "Menu.h"
 #include "State.h"
-#include "PWM.h"
 
 extern GFXcanvas16 s_canvas;
 extern int16_t s_windowY;
 extern AiEsp32RotaryEncoder s_knob;
 extern ADS1115 s_adc;
 extern Settings s_settings;
+extern Measurement s_measurement;
 
 extern LabelWidget s_modeWidget;
 
@@ -64,23 +64,23 @@ static const char* getUnit()
 static void readData()
 {
 	bool readVoltage, readCurrent, readTemperature;
-	readAdcs(readVoltage, readCurrent, readTemperature);
+	s_measurement.readAdcs(readVoltage, readCurrent, readTemperature);
 
 	bool read = false;
 	if (s_menuSection == MenuSection::Voltage && readVoltage)
 	{
 		read = true;
-		s_raw = getVoltageRaw();
+		s_raw = s_measurement.getVoltageRaw();
 	}
 	else if (s_menuSection == MenuSection::Current && readCurrent)
 	{
 		read = true;
-		s_raw = getCurrentRaw();
+		s_raw = s_measurement.getCurrentRaw();
 	}
 	else if (s_menuSection == MenuSection::Temperature && readTemperature)
 	{
 		read = true;
-		s_raw = getTemperatureRaw();
+		s_raw = s_measurement.getTemperatureRaw();
 	}
 
 	if (read)
@@ -100,9 +100,9 @@ static void refreshSubMenu()
 
 	if (s_menuSection == MenuSection::DAC)
 	{
-		sprintf(buf, "DAC: %d%%", int(getDAC() * 100.f));
+		sprintf(buf, "DAC: %d%%", int(s_measurement.getDAC() * 100.f));
 		s_menu.getSubMenuEntry(1) = buf;
-		sprintf(buf, "Current: %f", getCurrent());
+		sprintf(buf, "Current: %f", s_measurement.getCurrent());
 		s_menu.getSubMenuEntry(2) = buf;
 	}
 	else
@@ -144,10 +144,10 @@ static void processMainSection()
 		s_menuSection = MenuSection(selection);
 		s_selection = 0;
 		s_range = 0;
-		setVoltageRange(s_range);
-		setCurrentRange(s_range);	
-		setDAC(0.f);
-		setLoadEnabled(false);
+		s_measurement.setVoltageRange(s_range);
+		s_measurement.setCurrentRange(s_range);	
+		s_measurement.setDAC(0.f);
+		s_measurement.setLoadEnabled(false);
 		if (s_menuSection == MenuSection::DAC)
 		{
 			s_menu.pushSubMenu({
@@ -198,9 +198,9 @@ static void processDACSection()
 								 /* 1 */"DAC",
 								 /* 2 */"Current",
 				                }, 0, s_windowY);
-			setCurrentAutoRanging(true);
-			setDAC(0.f);
-			setLoadEnabled(false);
+			s_measurement.setCurrentAutoRanging(true);
+			s_measurement.setDAC(0.f);
+			s_measurement.setLoadEnabled(false);
 			s_total = 0;
 			s_sampleSkipCount = 0;
 			s_sampleCount = 0;
@@ -212,6 +212,7 @@ static void processDACSection()
 			saveSettings(s_newSettings);
 			loadSettings(s_newSettings);
 			s_settings = s_newSettings;
+			s_measurement.setSettings(s_settings);
 		}
 	}
 	else
@@ -220,27 +221,27 @@ static void processDACSection()
 		size_t selection = s_menu.process(s_knob);
 		if (selection == 0)
 		{
-			setFanPWM(0);
-			setDAC(0);
-			setLoadEnabled(false);
+			//s_measurement.setFan(0);
+			s_measurement.setDAC(0);
+			s_measurement.setLoadEnabled(false);
 			s_selection = 0;
 			s_menu.popSubMenu();
 			return;
 		}
 
 		bool readVoltage, readCurrent, readTemperature;
-		readAdcs(readVoltage, readCurrent, readTemperature);
+		s_measurement.readAdcs(readVoltage, readCurrent, readTemperature);
 		if (readCurrent)
 		{
 			s_sampleSkipCount++;
 			if (s_sampleSkipCount == 3)
 			{
 				ESP_LOGI("Calibration", "Load on");
-				setLoadEnabled(true);
+				s_measurement.setLoadEnabled(true);
 			}
 			else if (s_sampleSkipCount >= 10)
 			{
-				float value = getCurrent();
+				float value = s_measurement.getCurrent();
 				ESP_LOGI("Calibration", "Sample: %f", value);
 				s_total += value;
 				s_sampleCount++;
@@ -252,7 +253,7 @@ static void processDACSection()
 		}
 		if (s_sampleCount >= 10)
 		{
-			setLoadEnabled(false);
+			s_measurement.setLoadEnabled(false);
 			float value = s_total / (float)s_sampleCount;
 			s_newSettings.dac2CurrentTable[s_dacTableIndex] = value;
 			ESP_LOGI("Calibration", "DAC index %d: %f", s_dacTableIndex, value);
@@ -262,9 +263,9 @@ static void processDACSection()
 			s_dacTableIndex++;
 			if (s_dacTableIndex >= s_newSettings.dac2CurrentTable.size() || value >= k_maxCurrent)
 			{
-				setFanPWM(0);
-				setDAC(0);
-				setLoadEnabled(false);
+				//s_measurement.setFan(0);
+				s_measurement.setDAC(0);
+				s_measurement.setLoadEnabled(false);
 				s_selection = 0;
 				s_menu.popSubMenu();
 				return;
@@ -272,7 +273,7 @@ static void processDACSection()
 			else
 			{
 				float f = (float)s_dacTableIndex / (float)s_newSettings.dac2CurrentTable.size();
-				setDAC(f * f * f);
+				s_measurement.setDAC(f * f * f);
 			}
 		}
 	}
@@ -313,8 +314,8 @@ static void process2PointSection()
 				s_sampleSkipCount = 0;
 				if (s_menuSection == MenuSection::Current) //enable the load
 				{
-					setDAC(1.f);
-					setLoadEnabled(true);
+					s_measurement.setDAC(1.f);
+					s_measurement.setLoadEnabled(true);
 				}
 			}
 		}
@@ -333,8 +334,8 @@ static void process2PointSection()
 		}
 		if (s_knob.currentButtonState() == BUT_RELEASED)
 		{
-			setVoltageRange(s_range);
-			setCurrentRange(s_range);
+			s_measurement.setVoltageRange(s_range);
+			s_measurement.setCurrentRange(s_range);
 			s_selection = 0;
 		}
 		readData();
@@ -389,8 +390,8 @@ static void process2PointSection()
 
 			refreshSubMenu();
 			s_selection = 0;
-			setDAC(0.f);
-			setLoadEnabled(false);
+			s_measurement.setDAC(0.f);
+			s_measurement.setLoadEnabled(false);
 		}
 	}
 	else if (s_selection == 6) //Calibration 2
@@ -437,8 +438,8 @@ static void process2PointSection()
 
 			refreshSubMenu();
 			s_selection = 0;
-			setDAC(0.f);
-			setLoadEnabled(false);
+			s_measurement.setDAC(0.f);
+			s_measurement.setLoadEnabled(false);
 		}
 	}
 	else if (s_selection == 7) //save
@@ -446,6 +447,7 @@ static void process2PointSection()
 		saveSettings(s_newSettings);
 		loadSettings(s_newSettings);
 		s_settings = s_newSettings;
+		s_measurement.setSettings(s_settings);
 		s_selection = 0;
 	}
 	s_menu.render(s_canvas, 0);	
@@ -499,10 +501,10 @@ void beginCalibrationState()
 	                 /* 4 */"DAC",
 	                }, 0, s_windowY);
 
-	setVoltageRange(s_range);
-	setCurrentRange(s_range);	
-	setDAC(0.f);
-	setLoadEnabled(false);
+	s_measurement.setVoltageRange(s_range);
+	s_measurement.setCurrentRange(s_range);	
+	s_measurement.setDAC(0.f);
+	s_measurement.setLoadEnabled(false);
 }
 
 void endCalibrationState()
