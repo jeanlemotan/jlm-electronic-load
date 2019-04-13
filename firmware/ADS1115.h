@@ -12,7 +12,8 @@
 #define ADS1115_PGA_SHIFT 9
 #define ADS1115_MUX_SHIFT 12
 
-enum ads1115_comp_queue {
+enum ads1115_comp_queue 
+{
 	ADS1115_COMP_QUEUE_AFTER_ONE = 0,
 	ADS1115_COMP_QUEUE_AFTER_TWO = 0x1 << ADS1115_COMP_QUEUE_SHIFT,
 	ADS1115_COMP_QUEUE_AFTER_FOUR = 0x2 << ADS1115_COMP_QUEUE_SHIFT,
@@ -20,25 +21,29 @@ enum ads1115_comp_queue {
 	ADS1115_COMP_QUEUE_MASK = 0x3 << ADS1115_COMP_QUEUE_SHIFT,
 };
 
-enum ads1115_comp_latch {
+enum ads1115_comp_latch 
+{
 	ADS1115_COMP_LATCH_NO = 0,
 	ADS1115_COMP_LATCH_YES = 1 << ADS1115_COMP_LATCH_SHIFT,
 	ADS1115_COMP_LATCH_MASK = 1 << ADS1115_COMP_LATCH_SHIFT,
 };
 
-enum ads1115_comp_polarity {
+enum ads1115_comp_polarity 
+{
 	ADS1115_COMP_POLARITY_ACTIVE_LOW = 0,
 	ADS1115_COMP_POLARITY_ACTIVE_HIGH = 1 << ADS1115_COMP_POLARITY_SHIFT,
 	ADS1115_COMP_POLARITY_MASK = 1 << ADS1115_COMP_POLARITY_SHIFT,
 };
 
-enum ads1115_comp_mode {
+enum ads1115_comp_mode 
+{
 	ADS1115_COMP_MODE_WINDOW = 0,
 	ADS1115_COMP_MODE_HYSTERESIS = 1 << ADS1115_COMP_MODE_SHIFT,
 	ADS1115_COMP_MODE_MASK = 1 << ADS1115_COMP_MODE_SHIFT,
 };
 
-enum ads1115_data_rate {
+enum ads1115_data_rate 
+{
 	ADS1115_DATA_RATE_8_SPS = 0,
 	ADS1115_DATA_RATE_16_SPS = 0x1 << ADS1115_DATA_RATE_SHIFT,
 	ADS1115_DATA_RATE_32_SPS = 0x2 << ADS1115_DATA_RATE_SHIFT,
@@ -50,13 +55,15 @@ enum ads1115_data_rate {
 	ADS1115_DATA_RATE_MASK = 0x7 << ADS1115_DATA_RATE_SHIFT,
 };
 
-enum ads1115_mode {
+enum ads1115_mode 
+{
 	ADS1115_MODE_CONTINUOUS = 0,
 	ADS1115_MODE_SINGLE_SHOT = 1 << ADS1115_MODE_SHIFT,
 	ADS1115_MODE_MASK = 1 << ADS1115_MODE_SHIFT,
 };
 
-enum ads1115_pga {
+enum ads1115_pga 
+{
 	ADS1115_PGA_TWO_THIRDS = 0,
 	ADS1115_PGA_ONE = 0x1 << ADS1115_PGA_SHIFT,
 	ADS1115_PGA_TWO = 0x2 << ADS1115_PGA_SHIFT,
@@ -66,7 +73,8 @@ enum ads1115_pga {
 	ADS1115_PGA_MASK = 0x7 << ADS1115_PGA_SHIFT,
 };
 
-enum ads1115_mux {
+enum ads1115_mux 
+{
 	ADS1115_MUX_DIFF_AIN0_AIN1 = 0,
 	ADS1115_MUX_DIFF_AIN0_AIN3 = 0x1 << ADS1115_MUX_SHIFT,
 	ADS1115_MUX_DIFF_AIN1_AIN3 = 0x2 << ADS1115_MUX_SHIFT,
@@ -83,8 +91,8 @@ public:
 	ADS1115(uint8_t address = 0x48);
 
 	void begin();
-	uint8_t trigger_sample();
-	uint8_t reset();
+	bool trigger_sample();
+	bool reset();
 	bool is_sample_in_progress();
 	int16_t read_sample();
 	float sample_to_float(int16_t val);
@@ -100,11 +108,12 @@ public:
 	void set_mux(enum ads1115_mux val) { set_config(val, ADS1115_MUX_MASK); }
 
 private:
-	void set_config(uint16_t val, uint16_t mask) {
+	void set_config(uint16_t val, uint16_t mask) 
+	{
 		m_config = (m_config & ~mask) | val;
 	}
 
-	uint8_t write_register(uint8_t reg, uint16_t val);
+	bool write_register(uint8_t reg, uint16_t val);
 	uint16_t read_register(uint8_t reg);
 
 	uint8_t m_address;

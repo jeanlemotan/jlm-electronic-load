@@ -60,6 +60,8 @@ IRAM_ATTR void knobISR()
 void setup() 
 {
   Serial.begin(115200);
+  //Wire.begin(-1, -1, 400000);
+  //Wire.setClock(400000);
 
   esp_log_level_set("*", ESP_LOG_DEBUG);
 
@@ -120,7 +122,7 @@ void setup()
 
   s_windowY = SansSerif_bold_10.yAdvance + 3;  
 
-  loadSettings(s_settings);
+  s_settings.load();
   s_measurement.setSettings(s_settings);
   s_measurement.init();
 
@@ -208,7 +210,7 @@ void processSDCard()
 void loop()
 {
   static uint32_t lastTP = millis();
-  printf("\nD: %lu", millis() - lastTP);
+  //printf("\nD: %lu", millis() - lastTP);
   lastTP = millis();
 
   s_canvas.fillScreen(0);
