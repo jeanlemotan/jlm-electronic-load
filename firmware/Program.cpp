@@ -1,7 +1,7 @@
 #include "Program.h"
 #include <vector>
 #include <array>
-#include "MeasurementState.h"
+#include "Measurement.h"
 #include <Arduino.h>
 
 struct Step

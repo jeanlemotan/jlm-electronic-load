@@ -2,6 +2,7 @@
 
 #include "Adafruit_GFX.h"
 #include "WidgetBase.h"
+#include "Clock.h"
 
 class GraphWidget : public WidgetBase
 {
@@ -9,7 +10,7 @@ public:
 	GraphWidget(Adafruit_GFX& gfx, size_t capacity);
 	uint8_t addPlot(const char* name, uint16_t color, float minRange);
 
-	void addValue(uint8_t plotIndex, uint64_t timestamp, float value, bool continued);
+	void addValue(uint8_t plotIndex, Clock::duration timestamp, float value, bool continued);
 
 	void setSize(int16_t width, int16_t height);
 	int16_t getWidth() const override;
@@ -35,9 +36,9 @@ private:
 		std::string name;
 		uint16_t color = 0xFFFF;
 		float minRange = 0.00000001f;
-		uint32_t timePerUnit = 1000; //ms
-		uint64_t firstTimestamp = 0;
-		uint64_t lastTimestamp = 0;
+		Clock::duration timePerUnit = std::chrono::milliseconds(1000);
+		Clock::duration firstTimestamp = Clock::duration::zero();
+		Clock::duration lastTimestamp = Clock::duration::zero();
 		float minValue = 999999;
 		float maxValue = -999999;
 		std::vector<Point> points;

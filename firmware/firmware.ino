@@ -20,6 +20,7 @@
 #include "LabelWidget.h"
 #include "CalibrationState.h"
 #include "MeasurementState.h"
+#include "Measurement.h"
 #include "State.h"
 #include "XPT2046.h"
 #include "Fonts/SansSerif_plain_10.h"
@@ -242,7 +243,7 @@ void processSDCard()
 void loop()
 {
   static uint32_t lastTP = millis();
-  //printf("\nD: %lu", millis() - lastTP);
+  printf("\nD: %lu", millis() - lastTP);
   lastTP = millis();
 
   s_canvas.fillScreen(0);

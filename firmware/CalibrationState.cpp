@@ -1,5 +1,5 @@
 #include "CalibrationState.h"
-#include "MeasurementState.h"
+#include "Measurement.h"
 #include "ValueWidget.h"
 #include "LabelWidget.h"
 #include "Settings.h"
@@ -175,8 +175,6 @@ static void processMainSection()
 
 static void processDACSection()
 {
-	char buf[64];
-
 	//Mode
 	s_modeWidget.setValue("Cal / DAC");
 	s_modeWidget.render();

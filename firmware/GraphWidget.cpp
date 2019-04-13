@@ -2,7 +2,7 @@
 
 GraphWidget::GraphWidget(Adafruit_GFX& gfx, size_t capacity)
 	: WidgetBase(gfx)
-	, m_capacity(capacity)
+	, m_capacity(std::max(capacity, 50u))
 {
 }
 uint8_t GraphWidget::addPlot(const char* name, uint16_t color, float minRange)
@@ -18,7 +18,7 @@ uint8_t GraphWidget::addPlot(const char* name, uint16_t color, float minRange)
 void GraphWidget::resample(Plot& plot)
 {
 	plot.timePerUnit *= 2;
-	printf("\nResampling to %d", (int)plot.timePerUnit);
+	//printf("\nResampling to %d", (int)plot.timePerUnit);
 	size_t step = 0;
 	for (auto it = plot.points.begin(); it != plot.points.end();)
 	{
@@ -33,7 +33,7 @@ void GraphWidget::resample(Plot& plot)
 		step++;
 	}
 }
-void GraphWidget::addValue(uint8_t plotIndex, uint64_t timestamp, float value, bool continued)
+void GraphWidget::addValue(uint8_t plotIndex, Clock::duration timestamp, float value, bool continued)
 {
 	if (plotIndex >= m_plots.size())
 	{
@@ -58,12 +58,12 @@ void GraphWidget::addValue(uint8_t plotIndex, uint64_t timestamp, float value, b
 
 	float lastValue = plot.points.back().value;
 	float dv = value - lastValue;
-	uint64_t lastTimestamp = plot.lastTimestamp;
-	uint64_t dt = timestamp - lastTimestamp;
+	Clock::duration lastTimestamp = plot.lastTimestamp;
+	Clock::duration dt = timestamp - lastTimestamp;
 
 	//sample
 	//printf("\nS: ");
-	uint64_t t = plot.timePerUnit;
+	Clock::duration t = plot.timePerUnit;
 	while (t < dt)
 	{
 		if (plot.points.size() >= m_capacity)
@@ -72,7 +72,7 @@ void GraphWidget::addValue(uint8_t plotIndex, uint64_t timestamp, float value, b
 		}
 		assert(plot.points.size() < m_capacity);
 
-		float sampledValue = lastValue + (float(t) / float(dt)) * dv;
+		float sampledValue = lastValue + (std::chrono::duration_cast<secondsf>(t).count() / std::chrono::duration_cast<secondsf>(dt).count()) * dv;
 		//printf("T:%d/%f, ", (int)(lastTimestamp + t), sampledValue);
 
 		plot.minValue = std::min(plot.minValue, sampledValue);
@@ -100,19 +100,30 @@ int16_t GraphWidget::getHeight() const
 void GraphWidget::render()
 {
 	Position position = getPosition(Anchor::TopLeft);
-	m_gfx.fillRect(position.x, position.y, m_w, m_h, 0x0861);
+	//m_gfx.fillRect(position.x, position.y, m_w, m_h, 0x0861);
 
 	//printf("\nV: ");
 	for (const Plot& plot: m_plots)
 	{
-		float range = std::max(plot.maxValue - plot.minValue, std::max(plot.minRange, 0.00000001f));
+		float minValue = plot.minValue;
+		float maxValue = plot.maxValue;
+		float range = plot.maxValue - plot.minValue;
+		float minRange = std::max(plot.minRange, 0.00000001f);
+		if (range < minRange)
+		{
+			float center = (maxValue + minValue) / 2.f;
+			minValue = center - minRange / 2.f;
+			maxValue = center + minRange / 2.f;
+		}
+		range = maxValue - minValue;
 		int16_t index = 0;
 		int16_t lastX, lastY;
+		size_t count = std::max(plot.points.size(), 50u);
 		for (const Point& point: plot.points)
 		{
 			//printf("%f, ", point.value);
-			int16_t x = position.x + index * m_w / plot.points.size();
-			int16_t y = position.y + m_h - int16_t(((point.value - plot.minValue) / range) * m_h);
+			int16_t x = position.x + index * m_w / count;
+			int16_t y = position.y + m_h - int16_t(((point.value - minValue) / range) * m_h);
 			if (index > 0)
 			{
 				m_gfx.drawLine(lastX, lastY, x, y, plot.color);
