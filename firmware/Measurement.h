@@ -68,6 +68,33 @@ public:
 	Clock::duration getLoadTimer() const;
 	void resetLoadTimer();
 
+	void setVoltageLimit(float limit);
+	float getVoltateLimit() const;
+	void setVoltageLimitEnabled(bool enabled);
+
+	void setEnergyLimit(float limit);
+	float getEnergyLimit() const;
+	void setEnergyLimitEnabled(bool enabled);
+
+	void setChargeLimit(float limit);
+	float getChargeLimit() const;
+	void setChargeLimitEnabled(bool enabled);
+
+	enum class StopCondition
+	{
+		None,
+		VoltageLimit,
+		EnergyLimit,
+		ChargeLimit,
+		LoadTimerLimit
+	};
+
+	StopCondition getStopCondition() const;
+
+	void setLoadTimerLimit(Clock::duration limit);
+	Clock::duration getLoadTimerLimit() const;
+	void setLoadTimerLimitEnabled(bool enabled);
+
 	enum class TrackingMode
 	{
 		None,
@@ -99,6 +126,7 @@ private:
 	float _computeCurrent(float raw) const;
 	void _getCurrentBiasScale(float& bias, float& scale) const;
 	float _computeTemperature(float raw) const;
+	void _checkStopConditions();
 	void _threadProc();
 
 	struct Impl;

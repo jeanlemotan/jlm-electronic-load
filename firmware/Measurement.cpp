@@ -85,6 +85,16 @@ struct Measurement::Impl
 
 	TrackingMode trackingMode = TrackingMode::CC;
 
+	float voltageLimit = 0.f;
+	bool isVoltageLimitEnabled = false;
+	float energyLimit = 0.f;
+	bool isEnergyLimitEnabled = false;
+	float chargeLimit = 0.f;
+	bool isChargeLimitEnabled = false;
+	Clock::duration loadTimerLimit = Clock::duration::zero();
+	bool isLoadTimerLimitEnabled = false;
+
+	Measurement::StopCondition stopCondition = Measurement::StopCondition::None;
 
 	ADCMux adcMux = ADCMux::Voltage;
 	Clock::time_point adcSampleStartedTP = Clock::now();
@@ -454,8 +464,12 @@ float Measurement::getDAC() const
 void Measurement::setLoadEnabled(bool enabled)
 {
 	std::lock_guard<std::mutex> lg(m_impl->mutex);
+	if (enabled)
+	{
+		m_impl->stopCondition = StopCondition::None;
+		m_impl->loadEnabledTP = Clock::now();
+	}
 	m_impl->isLoadEnabled = enabled;
-	m_impl->loadEnabledTP = Clock::now();
 	_setDAC(m_impl->dacValue);
 }
 bool Measurement::isLoadEnabled() const
@@ -575,6 +589,66 @@ void Measurement::_readAdcs(bool& hasVoltage, bool& hasCurrent, bool& hasTempera
 	m_impl->temperature = (m_impl->temperature * 90.f + _computeTemperature(m_impl->temperatureRaw) * 10.f) / 100.f;
 	hasTemperature = true;
 }
+void Measurement::setVoltageLimit(float limit)
+{
+	std::lock_guard<std::mutex> lg(m_impl->mutex);
+	m_impl->voltageLimit = limit;
+}
+float Measurement::getVoltateLimit() const
+{
+	std::lock_guard<std::mutex> lg(m_impl->mutex);
+	return m_impl->voltageLimit;
+}
+void Measurement::setVoltageLimitEnabled(bool enabled)
+{
+	std::lock_guard<std::mutex> lg(m_impl->mutex);
+	m_impl->isVoltageLimitEnabled = enabled;
+}
+void Measurement::setEnergyLimit(float limit)
+{
+	std::lock_guard<std::mutex> lg(m_impl->mutex);
+	m_impl->energyLimit = limit;
+}
+float Measurement::getEnergyLimit() const
+{
+	std::lock_guard<std::mutex> lg(m_impl->mutex);
+	return m_impl->energyLimit;
+}
+void Measurement::setEnergyLimitEnabled(bool enabled)
+{
+	std::lock_guard<std::mutex> lg(m_impl->mutex);
+	m_impl->isEnergyLimitEnabled = enabled;
+}
+void Measurement::setChargeLimit(float limit)
+{
+	std::lock_guard<std::mutex> lg(m_impl->mutex);
+	m_impl->chargeLimit = limit;
+}
+float Measurement::getChargeLimit() const
+{
+	std::lock_guard<std::mutex> lg(m_impl->mutex);
+	return m_impl->chargeLimit;
+}
+void Measurement::setChargeLimitEnabled(bool enabled)
+{
+	std::lock_guard<std::mutex> lg(m_impl->mutex);
+	m_impl->isChargeLimitEnabled = enabled;
+}
+void Measurement::setLoadTimerLimit(Clock::duration limit)
+{
+	std::lock_guard<std::mutex> lg(m_impl->mutex);
+	m_impl->loadTimerLimit = limit;
+}
+Clock::duration Measurement::getLoadTimerLimit() const
+{
+	std::lock_guard<std::mutex> lg(m_impl->mutex);
+	return m_impl->loadTimerLimit;
+}
+void Measurement::setLoadTimerLimitEnabled(bool enabled)
+{
+	std::lock_guard<std::mutex> lg(m_impl->mutex);
+	m_impl->isLoadTimerLimitEnabled = enabled;
+}
 Measurement::TrackingMode Measurement::getTrackingMode() const
 {
 	std::lock_guard<std::mutex> lg(m_impl->mutex);
@@ -642,6 +716,51 @@ void Measurement::_updateTracking()
 	//m_impl->dacTrim += diff * 0.01f;
 	m_impl->dacTrim = clamp(m_impl->dacTrim, k_minDACTrim, k_maxDACTrim);
 }
+Measurement::StopCondition Measurement::getStopCondition() const
+{
+	std::lock_guard<std::mutex> lg(m_impl->mutex);
+	return m_impl->stopCondition;
+}
+void Measurement::_checkStopConditions()
+{
+	if (!m_impl->isLoadEnabled)
+	{
+		return;
+	}
+
+	if (m_impl->isVoltageLimitEnabled)
+	{
+		if (m_impl->voltage <= m_impl->voltageLimit)
+		{
+			m_impl->stopCondition = StopCondition::VoltageLimit;
+			setLoadEnabled(false);
+		}
+	}
+	if (m_impl->isEnergyLimitEnabled)
+	{
+		if (m_impl->energy >= m_impl->energyLimit)
+		{
+			m_impl->stopCondition = StopCondition::EnergyLimit;
+			setLoadEnabled(false);
+		}
+	}
+	if (m_impl->isChargeLimitEnabled)
+	{
+		if (m_impl->charge >= m_impl->chargeLimit)
+		{
+			m_impl->stopCondition = StopCondition::ChargeLimit;
+			setLoadEnabled(false);
+		}
+	}
+	if (m_impl->isLoadTimerLimitEnabled)
+	{
+		if (m_impl->loadTimer >= m_impl->loadTimerLimit)
+		{
+			m_impl->stopCondition = StopCondition::LoadTimerLimit;
+			setLoadEnabled(false);
+		}
+	}
+}
 void Measurement::_threadProc()
 {
 	while (true)
@@ -686,6 +805,7 @@ void Measurement::_threadProc()
 			}
 
 			_updateTracking();
+			_checkStopConditions();
 		}
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(10));
