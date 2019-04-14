@@ -41,6 +41,7 @@ enum class ADCMux
 constexpr float Measurement::k_maxCurrent;
 constexpr float Measurement::k_minResistance;
 constexpr float Measurement::k_maxResistance;
+constexpr float Measurement::k_infiniteResistance;
 constexpr float Measurement::k_maxPower;
 
 struct Measurement::Impl
@@ -58,14 +59,14 @@ struct Measurement::Impl
 	float current = 0.f;
 	float voltage = 0.f;
 	float power = 0.f;
-	float resistance = k_maxResistance;
+	float resistance = k_infiniteResistance;
 	bool isLoadEnabled = false;
 	Clock::time_point loadEnabledTP = Clock::time_point(Clock::duration::zero());
 
 	//the user set targets
 	float targetCurrent = 0.f; 
 	float targetPower = 0.f;
-	float targetResistance = k_minResistance;
+	float targetResistance = k_maxResistance;
 
 	float trackedCurrent = 0.f; //this is the current the load is trying to match
 	float dacTrim = 0.f;
@@ -427,7 +428,7 @@ float Measurement::getTargetPower() const
 void Measurement::setTargetResistance(float target)
 {
 	std::lock_guard<std::mutex> lg(m_impl->mutex);
-	m_impl->targetResistance = std::max(target, k_minResistance);
+	m_impl->targetResistance = clamp(target, k_minResistance, k_maxResistance);
 }
 float Measurement::getTargetResistance() const
 {
@@ -582,7 +583,7 @@ void Measurement::_readAdcs(bool& hasVoltage, bool& hasCurrent, bool& hasTempera
 		m_impl->adcSampleStartedTP = now;
 
 		m_impl->power = m_impl->voltage * m_impl->current;
-		m_impl->resistance = m_impl->current <= 0.0001f ? k_maxResistance : std::abs(m_impl->voltage / m_impl->current);
+		m_impl->resistance = m_impl->current <= 0.0001f ? k_infiniteResistance : std::abs(m_impl->voltage / m_impl->current);
 	}
 
 	m_impl->temperatureRaw = adc1_get_raw(ADC1_CHANNEL_4) / 4096.f;
@@ -604,10 +605,10 @@ void Measurement::setVoltageLimitEnabled(bool enabled)
 	std::lock_guard<std::mutex> lg(m_impl->mutex);
 	m_impl->isVoltageLimitEnabled = enabled;
 }
-void Measurement::isVoltageEnabled() const
+bool Measurement::isVoltageLimitEnabled() const
 {
 	std::lock_guard<std::mutex> lg(m_impl->mutex);
-	return m_impl->isVoltageEnabled;
+	return m_impl->isVoltageLimitEnabled;
 }
 void Measurement::setEnergyLimit(float limit)
 {
@@ -624,10 +625,10 @@ void Measurement::setEnergyLimitEnabled(bool enabled)
 	std::lock_guard<std::mutex> lg(m_impl->mutex);
 	m_impl->isEnergyLimitEnabled = enabled;
 }
-void Measurement::isEnergyEnabled() const
+bool Measurement::isEnergyLimitEnabled() const
 {
 	std::lock_guard<std::mutex> lg(m_impl->mutex);
-	return m_impl->isEnergyEnabled;
+	return m_impl->isEnergyLimitEnabled;
 }
 void Measurement::setChargeLimit(float limit)
 {
@@ -644,10 +645,10 @@ void Measurement::setChargeLimitEnabled(bool enabled)
 	std::lock_guard<std::mutex> lg(m_impl->mutex);
 	m_impl->isChargeLimitEnabled = enabled;
 }
-void Measurement::isChargeEnabled() const
+bool Measurement::isChargeLimitEnabled() const
 {
 	std::lock_guard<std::mutex> lg(m_impl->mutex);
-	return m_impl->isChargeEnabled;
+	return m_impl->isChargeLimitEnabled;
 }
 void Measurement::setLoadTimerLimit(Clock::duration limit)
 {
@@ -664,7 +665,7 @@ void Measurement::setLoadTimerLimitEnabled(bool enabled)
 	std::lock_guard<std::mutex> lg(m_impl->mutex);
 	m_impl->isLoadTimerLimitEnabled = enabled;
 }
-void Measurement::isLoadTimerLimitEnabled() const
+bool Measurement::isLoadTimerLimitEnabled() const
 {
 	std::lock_guard<std::mutex> lg(m_impl->mutex);
 	return m_impl->isLoadTimerLimitEnabled;

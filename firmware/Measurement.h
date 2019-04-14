@@ -10,9 +10,11 @@ public:
 	Measurement();
 	~Measurement();
 
+	static constexpr float k_maxVoltage = 30.f;
 	static constexpr float k_maxCurrent = 4.f;
 	static constexpr float k_minResistance = 0.2f;
-	static constexpr float k_maxResistance = 999999999999.f;
+	static constexpr float k_maxResistance = k_maxVoltage / 0.001f; 
+	static constexpr float k_infiniteResistance = 999999.f; 
 	static constexpr float k_maxPower = 100.f;
 
 	void init();
@@ -71,22 +73,22 @@ public:
 	void setVoltageLimit(float limit);
 	float getVoltateLimit() const;
 	void setVoltageLimitEnabled(bool enabled);
-	void isVoltageLimitEnabled() const;
+	bool isVoltageLimitEnabled() const;
 
 	void setEnergyLimit(float limit);
 	float getEnergyLimit() const;
 	void setEnergyLimitEnabled(bool enabled);
-	void isEnergyLimitEnabled() const;
+	bool isEnergyLimitEnabled() const;
 
 	void setChargeLimit(float limit);
 	float getChargeLimit() const;
 	void setChargeLimitEnabled(bool enabled);
-	void isChargeLimitEnabled() const;
+	bool isChargeLimitEnabled() const;
 
 	void setLoadTimerLimit(Clock::duration limit);
 	Clock::duration getLoadTimerLimit() const;
 	void setLoadTimerLimitEnabled(bool enabled);
-	void isLoadTimerLimitEnabled() const;
+	bool isLoadTimerLimitEnabled() const;
 
 	enum class StopCondition
 	{
