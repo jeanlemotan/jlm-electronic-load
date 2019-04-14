@@ -97,6 +97,20 @@ int16_t GraphWidget::getHeight() const
 {
 	return m_h;
 }
+void GraphWidget::clear()
+{
+	Plot cleanPlot;
+	for (Plot& plot: m_plots)
+	{
+		plot.minRange = cleanPlot.minRange;
+		plot.timePerUnit = cleanPlot.timePerUnit;
+		plot.firstTimestamp = cleanPlot.firstTimestamp;
+		plot.lastTimestamp = cleanPlot.lastTimestamp;
+		plot.minValue = cleanPlot.minValue;
+		plot.maxValue = cleanPlot.maxValue;
+		plot.points.clear();
+	}
+}
 void GraphWidget::render()
 {
 	Position position = getPosition(Anchor::TopLeft);

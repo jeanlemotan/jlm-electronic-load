@@ -51,6 +51,8 @@ struct Measurement::Impl
 	ADS1115 adc;
 	DAC8571 dac;
 	Settings settings;
+	Clock::duration sampleDuration = Clock::duration::zero();
+
 	float currentRaw = 0.f;
 	float voltageRaw = 0.f;
 	float current = 0.f;
@@ -97,6 +99,12 @@ struct Measurement::Impl
 	Clock::duration loadTimer = Clock::duration::zero();
 	Clock::time_point lastLoadTimerTP = Clock::now();
 };
+
+template <typename T>
+T clamp(T v, T min, T max)
+{
+	return std::min(std::max(v, min), max);
+}
 
 Measurement::Measurement()
 	: m_impl(new Impl)
@@ -169,12 +177,38 @@ void Measurement::init()
 		ESP_ERROR_CHECK(ledc_channel_config(&config));
 	}
 
+	_setSPS(SPS::_8);
+
 	m_impl->thread = std::thread([this]() { _threadProc(); });
+}
+
+void Measurement::_setSPS(SPS sps)
+{
+	ADS1115& adc = m_impl->adc;
+	switch (sps)
+	{
+		case SPS::_8:
+			adc.set_data_rate(ADS1115_DATA_RATE_8_SPS);
+			m_impl->sampleDuration = std::chrono::milliseconds(130);
+		break;
+		case SPS::_16:
+			adc.set_data_rate(ADS1115_DATA_RATE_16_SPS);
+			m_impl->sampleDuration = std::chrono::milliseconds(65);
+		break;
+		case SPS::_32:
+			adc.set_data_rate(ADS1115_DATA_RATE_32_SPS);
+			m_impl->sampleDuration = std::chrono::milliseconds(35);
+		break;
+		case SPS::_64:
+			adc.set_data_rate(ADS1115_DATA_RATE_64_SPS);
+			m_impl->sampleDuration = std::chrono::milliseconds(18);
+		break;
+	}
 }
 
 void Measurement::_setFan(float fan)
 {
-  	m_impl->fanValue = std::max(std::min(fan, 1.f), 0.f);
+  	m_impl->fanValue = clamp(fan, 0.f, 1.f);
   	uint32_t duty = uint32_t(m_impl->fanValue * float(k_fanPrecision));
   	ESP_ERROR_CHECK(ledc_set_duty_and_update(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1, duty, k_fanPrecision - 1));
 }
@@ -363,7 +397,7 @@ void Measurement::resetEnergy()
 void Measurement::setTargetCurrent(float target)
 {
 	std::lock_guard<std::mutex> lg(m_impl->mutex);
-	m_impl->targetCurrent = std::max(std::min(target, k_maxCurrent), 0.f);
+	m_impl->targetCurrent = clamp(target, 0.f, k_maxCurrent);
 }
 float Measurement::getTargetCurrent() const
 {
@@ -373,7 +407,7 @@ float Measurement::getTargetCurrent() const
 void Measurement::setTargetPower(float target)
 {
 	std::lock_guard<std::mutex> lg(m_impl->mutex);
-	m_impl->targetPower = std::min(target, k_maxPower);
+	m_impl->targetPower = clamp(target, 0.f, k_maxPower);
 }
 float Measurement::getTargetPower() const
 {
@@ -399,7 +433,7 @@ void Measurement::_setDAC(float dac)
 {
 	if (m_impl->isLoadEnabled)
 	{
-		dac = std::max(std::min(dac, 1.f), 0.f);
+		dac = clamp(dac, 0.f, 1.f);
 	}
 	else
 	{
@@ -461,7 +495,7 @@ void Measurement::_readAdcs(bool& hasVoltage, bool& hasCurrent, bool& hasTempera
 	hasTemperature = false;
 
 	Clock::time_point now = Clock::now();
-	if (!adc.is_sample_in_progress() && now >= m_impl->adcSampleStartedTP + std::chrono::milliseconds(130))
+	if (!adc.is_sample_in_progress() && now >= m_impl->adcSampleStartedTP + m_impl->sampleDuration)
 	{
 		float val = adc.read_sample_float();
 		if (m_impl->adcMux == ADCMux::Voltage)
@@ -550,6 +584,24 @@ void Measurement::setTrackingMode(TrackingMode mode)
 {
 	std::lock_guard<std::mutex> lg(m_impl->mutex);
 	m_impl->trackingMode = mode;
+	switch (mode)
+	{
+		case TrackingMode::CP: 
+			m_impl->targetPower = m_impl->trackedCurrent * m_impl->voltage;
+			m_impl->targetPower = clamp(m_impl->targetPower, 0.f, k_maxPower);
+			_setSPS(SPS::_32); //faster sampling for these software controlled modes
+			break;
+		case TrackingMode::CR: 
+			m_impl->targetResistance = m_impl->trackedCurrent <= 0.0001f ? k_maxResistance : std::abs(m_impl->voltage / m_impl->trackedCurrent);
+			m_impl->targetResistance = clamp(m_impl->targetResistance, k_minResistance, k_maxResistance);
+			_setSPS(SPS::_32); //faster sampling for these software controlled modes
+		break;
+		case TrackingMode::CC: 
+			m_impl->targetCurrent = clamp(m_impl->trackedCurrent, 0.f, k_maxCurrent);
+		default: 
+			_setSPS(SPS::_8); //low noise otherwise
+		break;
+	}
 }
 float Measurement::_computeDACForCurrent(float current) const
 {
@@ -558,7 +610,7 @@ float Measurement::_computeDACForCurrent(float current) const
 	{
 		dac = 0;
 	}	
-	return std::max(std::min(dac, 1.f), 0.f);
+	return clamp(dac, 0.f, 1.f);
 }
 void Measurement::_updateTracking()
 {
@@ -580,13 +632,15 @@ void Measurement::_updateTracking()
 		m_impl->trackedCurrent = m_impl->voltage / m_impl->targetResistance;
 	}
 
+	m_impl->trackedCurrent = clamp(m_impl->trackedCurrent, 0.f, k_maxCurrent);
+
 	float dac = _computeDACForCurrent(m_impl->trackedCurrent);
 	_setDAC(dac + m_impl->dacTrim);
 
 	float diff = m_impl->trackedCurrent - m_impl->current;
-	diff = std::max(std::min(diff, k_maxCurrentTrim), k_minCurrentTrim);
-	m_impl->dacTrim += diff * 0.01f;
-	m_impl->dacTrim = std::max(std::min(m_impl->dacTrim, k_maxDACTrim), k_minDACTrim);
+	diff = clamp(diff, k_minCurrentTrim, k_maxCurrentTrim);
+	//m_impl->dacTrim += diff * 0.01f;
+	m_impl->dacTrim = clamp(m_impl->dacTrim, k_minDACTrim, k_maxDACTrim);
 }
 void Measurement::_threadProc()
 {

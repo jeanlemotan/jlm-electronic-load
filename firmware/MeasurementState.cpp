@@ -117,7 +117,9 @@ static void refreshSubMenu()
 
 	if (s_menuSection == MenuSection::Main)
 	{
-		sprintf(buf, "Target: %.3f %s", s_measurement.getTargetCurrent(), "A");
+		sprintf(buf, "Target: %.3f %s", 
+			(mode == Measurement::TrackingMode::CC ? s_targetCurrent_mA : mode == Measurement::TrackingMode::CP ? s_targetPower_mW : s_targetResistance_mO) / 1000.f,
+			(mode == Measurement::TrackingMode::CC ? "A" : mode == Measurement::TrackingMode::CP ? "W" : "{"));
 		s_menu.getSubMenuEntry(1).text = buf;
 	}
 	else if (s_menuSection == MenuSection::SetTarget)
@@ -197,6 +199,10 @@ void processMeasurementState()
 		}
 		else if (selection == 1)
 		{
+			s_targetCurrent_mA = s_measurement.getTargetCurrent() * 1000.f;
+			s_targetPower_mW = s_measurement.getTargetPower() * 1000.f;
+			s_targetResistance_mO = s_measurement.getTargetResistance() * 1000.f;
+
 			s_menuSection = MenuSection::SetTarget;
 		}
 		else if (selection == 2)
@@ -215,6 +221,7 @@ void processMeasurementState()
 		else if (selection == 4)
 		{
 			s_measurement.resetEnergy();
+			s_graphWidget.clear();
 		}
 		else if (selection == 6)
 		{

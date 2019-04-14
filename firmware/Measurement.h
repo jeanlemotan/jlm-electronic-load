@@ -82,6 +82,14 @@ private:
 	void _readAdcs();
 	void _readAdcs(bool& voltage, bool& current, bool& temperature);
 	float _computeDACForCurrent(float current) const;
+	enum class SPS
+	{
+		_8,
+		_16,
+		_32,
+		_64
+	};
+	void _setSPS(SPS sps);
 
 	void _setFan(float fan);
 	void _setDAC(float dac);

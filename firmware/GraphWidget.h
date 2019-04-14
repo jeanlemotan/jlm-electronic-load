@@ -16,6 +16,7 @@ public:
 	int16_t getWidth() const override;
 	int16_t getHeight() const override;
 
+	void clear();
 	void render() override;
 
 private:
