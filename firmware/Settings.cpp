@@ -7,19 +7,6 @@
 #include <iostream>
 #include <fstream>
 
-/*
-temperature bias/scale: 0.000000/126.800003
-current bias/scale 0: 0.005415/1.711373
-voltage bias/scale 0: -0.001118/9.991604
-current bias/scale 1: 0.005461/1.711530
-voltage bias/scale 1: -0.001108/9.995218
-current bias/scale 2: 0.005306/1.712632
-voltage bias/scale 2: -0.001080/9.995083
-current bias/scale 3: 0.005076/1.715677
-voltage bias/scale 3: -0.001109/9.995955
-current bias/scale 4: 0.005886/1.708356
-voltage bias/scale 4: -0.001094/9.993112
-*/
 
 constexpr float k_shuntResistor = 0.1f;
 constexpr float k_currentAmplifierGain = 5.7f; //1 + R35/R36

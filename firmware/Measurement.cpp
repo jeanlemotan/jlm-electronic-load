@@ -604,6 +604,11 @@ void Measurement::setVoltageLimitEnabled(bool enabled)
 	std::lock_guard<std::mutex> lg(m_impl->mutex);
 	m_impl->isVoltageLimitEnabled = enabled;
 }
+void Measurement::isVoltageEnabled() const
+{
+	std::lock_guard<std::mutex> lg(m_impl->mutex);
+	return m_impl->isVoltageEnabled;
+}
 void Measurement::setEnergyLimit(float limit)
 {
 	std::lock_guard<std::mutex> lg(m_impl->mutex);
@@ -618,6 +623,11 @@ void Measurement::setEnergyLimitEnabled(bool enabled)
 {
 	std::lock_guard<std::mutex> lg(m_impl->mutex);
 	m_impl->isEnergyLimitEnabled = enabled;
+}
+void Measurement::isEnergyEnabled() const
+{
+	std::lock_guard<std::mutex> lg(m_impl->mutex);
+	return m_impl->isEnergyEnabled;
 }
 void Measurement::setChargeLimit(float limit)
 {
@@ -634,6 +644,11 @@ void Measurement::setChargeLimitEnabled(bool enabled)
 	std::lock_guard<std::mutex> lg(m_impl->mutex);
 	m_impl->isChargeLimitEnabled = enabled;
 }
+void Measurement::isChargeEnabled() const
+{
+	std::lock_guard<std::mutex> lg(m_impl->mutex);
+	return m_impl->isChargeEnabled;
+}
 void Measurement::setLoadTimerLimit(Clock::duration limit)
 {
 	std::lock_guard<std::mutex> lg(m_impl->mutex);
@@ -648,6 +663,11 @@ void Measurement::setLoadTimerLimitEnabled(bool enabled)
 {
 	std::lock_guard<std::mutex> lg(m_impl->mutex);
 	m_impl->isLoadTimerLimitEnabled = enabled;
+}
+void Measurement::isLoadTimerLimitEnabled() const
+{
+	std::lock_guard<std::mutex> lg(m_impl->mutex);
+	return m_impl->isLoadTimerLimitEnabled;
 }
 Measurement::TrackingMode Measurement::getTrackingMode() const
 {

@@ -71,14 +71,22 @@ public:
 	void setVoltageLimit(float limit);
 	float getVoltateLimit() const;
 	void setVoltageLimitEnabled(bool enabled);
+	void isVoltageLimitEnabled() const;
 
 	void setEnergyLimit(float limit);
 	float getEnergyLimit() const;
 	void setEnergyLimitEnabled(bool enabled);
+	void isEnergyLimitEnabled() const;
 
 	void setChargeLimit(float limit);
 	float getChargeLimit() const;
 	void setChargeLimitEnabled(bool enabled);
+	void isChargeLimitEnabled() const;
+
+	void setLoadTimerLimit(Clock::duration limit);
+	Clock::duration getLoadTimerLimit() const;
+	void setLoadTimerLimitEnabled(bool enabled);
+	void isLoadTimerLimitEnabled() const;
 
 	enum class StopCondition
 	{
@@ -90,10 +98,6 @@ public:
 	};
 
 	StopCondition getStopCondition() const;
-
-	void setLoadTimerLimit(Clock::duration limit);
-	Clock::duration getLoadTimerLimit() const;
-	void setLoadTimerLimitEnabled(bool enabled);
 
 	enum class TrackingMode
 	{
