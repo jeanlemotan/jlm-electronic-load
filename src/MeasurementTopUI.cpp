@@ -1,5 +1,5 @@
-#include "MeasurementState.h"
 #include "Measurement.h"
+#include "MeasurementTopUI.h"
 #include "ValueWidget.h"
 #include "LabelWidget.h"
 #include "GraphWidget.h"
@@ -9,7 +9,6 @@
 #include "Button.h"
 #include <driver/adc.h>
 #include "Program.h"
-#include "Menu.h"
 #include "Fonts/SansSerif_plain_10.h"
 #include "Fonts/SansSerif_bold_10.h"
 #include "Fonts/SansSerif_plain_13.h"
@@ -24,7 +23,6 @@
 extern GFXcanvas16 s_canvas;
 extern int16_t s_windowY;
 extern AiEsp32RotaryEncoder s_knob;
-extern Button s_button;
 extern Measurement s_measurement;
 extern ValueWidget s_temperatureWidget;
 
@@ -37,36 +35,9 @@ static ValueWidget s_powerWidget(s_canvas, 0.f, "W");
 static ValueWidget s_energyWidget(s_canvas, 0.f, "Wh");
 static ValueWidget s_chargeWidget(s_canvas, 0.f, "Ah");
 static LabelWidget s_timerWidget(s_canvas, "00:00:00");
-static GraphWidget s_graphWidget(s_canvas, 512);
 
 static LabelWidget s_targetLabelWidget(s_canvas, "Target:");
 static ValueWidget s_targetWidget(s_canvas, 0.f, "Ah");
-
-static uint16_t k_voltageColor = 0x05D2;
-static uint16_t k_currentColor = 0x0C3C;
-static uint16_t k_resistanceColor = 0xFE4D;
-static uint16_t k_powerColor = 0xFBAE;
-static uint16_t k_timerColor = 0xFFFF;
-static uint16_t k_chargeColor = 0x6AFC;
-static uint16_t k_energyColor = 0xD186;
-
-static uint8_t s_voltagePlot = 0;
-static uint8_t s_currentPlot = 0;
-static uint8_t s_powerPlot = 0;
-static uint8_t s_resistancePlot = 0;
-static uint8_t s_energyPlot = 0;
-static uint8_t s_chargePlot = 0;
-
-static Menu s_menu;
-enum class MenuSection
-{
-	Disabled,
-	Main,
-	SetTarget,
-	ProgramSelection
-};
-static MenuSection s_menuSection = MenuSection::Disabled;
-//static size_t s_menuSelection = 0;
 
 void printOutput()
 {
@@ -106,44 +77,6 @@ void printOutput()
 	sampleIndex++;
 }
 
-static int32_t s_targetCurrent_mA = 0;
-static int32_t s_targetPower_mW = 0;
-static int32_t s_targetResistance_mO = 0;
-
-static void refreshSubMenu()
-{
-	char buf[32];
-
-	Measurement::TrackingMode mode = s_measurement.getTrackingMode();
-
-	if (s_menuSection == MenuSection::Main)
-	{
-		sprintf(buf, "Target: %.3f %s", 
-			(mode == Measurement::TrackingMode::CC ? s_targetCurrent_mA : mode == Measurement::TrackingMode::CP ? s_targetPower_mW : s_targetResistance_mO) / 1000.f,
-			(mode == Measurement::TrackingMode::CC ? "A" : mode == Measurement::TrackingMode::CP ? "W" : "{"));
-		s_menu.getSubMenuEntry(1).text = buf;
-	}
-	else if (s_menuSection == MenuSection::SetTarget)
-	{
-		sprintf(buf, "Target:>%.3f %s", 
-			(mode == Measurement::TrackingMode::CC ? s_targetCurrent_mA : mode == Measurement::TrackingMode::CP ? s_targetPower_mW : s_targetResistance_mO) / 1000.f,
-			(mode == Measurement::TrackingMode::CC ? "A" : mode == Measurement::TrackingMode::CP ? "W" : "{"));
-		s_menu.getSubMenuEntry(1).text = buf;
-	}
-	sprintf(buf, "4 Wire: %s", s_measurement.is4WireEnabled() ? "On" : "Off");
-	s_menu.getSubMenuEntry(2) = buf;
-
-	if (mode == Measurement::TrackingMode::None)
-	{
-		sprintf(buf, "Mode: None");
-	}
-	else
-	{
-		sprintf(buf, "Mode: %s", mode == Measurement::TrackingMode::CC ? "CC" : mode == Measurement::TrackingMode::CP ? "CP" : "CR");
-	}
-	s_menu.getSubMenuEntry(3) = buf;
-}
-
 void setUnitValue(ValueWidget& widget, float value, uint8_t decimalsMacro, float maxMacro, uint8_t decimalsMicro, float maxMicro, const char* unitSI)
 {
 	char buf[8];
@@ -180,100 +113,10 @@ void setUnitValue(ValueWidget& widget, float value, uint8_t decimalsMacro, float
 	}	
 }
 
-void processMeasurementState()
+void processMeasurementTopUI()
 {
 	s_measurement.process();
 	Measurement::TrackingMode mode = s_measurement.getTrackingMode();
-
-	if (s_button.state() == Button::State::RELEASED)
-	{
-		s_measurement.setLoadEnabled(!s_measurement.isLoadEnabled());
-	}
-
-	if (s_menuSection == MenuSection::Main)
-	{
-		refreshSubMenu();
-		size_t selection = s_menu.process(s_knob);
-		if (selection == 0)
-		{
-			s_menuSection = MenuSection::Disabled;
-		}
-		else if (selection == 1)
-		{
-			s_targetCurrent_mA = s_measurement.getTargetCurrent() * 1000.f;
-			s_targetPower_mW = s_measurement.getTargetPower() * 1000.f;
-			s_targetResistance_mO = s_measurement.getTargetResistance() * 1000.f;
-
-			s_menuSection = MenuSection::SetTarget;
-		}
-		else if (selection == 2)
-		{
-			s_measurement.set4WireEnabled(!s_measurement.is4WireEnabled());
-		}
-		else if (selection == 3)
-		{
-			mode = mode == Measurement::TrackingMode::CC ? 
-								Measurement::TrackingMode::CP : 
-								mode == Measurement::TrackingMode::CP ? 
-									Measurement::TrackingMode::CR : 
-									Measurement::TrackingMode::CC;
-			s_measurement.setTrackingMode(mode);
-		}
-		else if (selection == 4)
-		{
-			s_measurement.resetEnergy();
-			s_graphWidget.clear();
-		}
-		else if (selection == 6)
-		{
-			stopProgram();
-		}
-	}
-	else if (s_menuSection == MenuSection::SetTarget)
-	{
-		int knobDelta = s_knob.encoderChangedAcc();
-		if (mode == Measurement::TrackingMode::CC)
-		{
-			s_targetCurrent_mA += knobDelta;
-			s_targetCurrent_mA = std::max(std::min(s_targetCurrent_mA, int32_t(Measurement::k_maxCurrent * 1000.f)), 0);
-		}
-		else if (mode == Measurement::TrackingMode::CP)
-		{
-			s_targetPower_mW += knobDelta;
-			s_targetPower_mW = std::max(std::min(s_targetPower_mW, int32_t(Measurement::k_maxPower * 1000.f)), 0);
-		}
-		else if (mode == Measurement::TrackingMode::CR)
-		{
-			s_targetResistance_mO += knobDelta;
-			s_targetResistance_mO = std::max(std::min(s_targetResistance_mO, int32_t(Measurement::k_maxResistance * 1000.f)), int32_t(Measurement::k_minResistance * 1000.f));
-		}
-		refreshSubMenu();
-
-		if (s_knob.currentButtonState() == BUT_RELEASED)
-		{
-			if (mode == Measurement::TrackingMode::CC)
-			{
-				s_measurement.setTargetCurrent(s_targetCurrent_mA / 1000.f);
-			}
-			else if (mode == Measurement::TrackingMode::CP)
-			{
-				s_measurement.setTargetPower(s_targetPower_mW / 1000.f);
-			}
-			else if (mode == Measurement::TrackingMode::CR)
-			{
-				s_measurement.setTargetResistance(s_targetResistance_mO / 1000.f);
-			}
-			s_menuSection = MenuSection::Main;
-		}
-	}
-	else if (s_menuSection == MenuSection::Disabled)
-	{
-		if (s_knob.currentButtonState() == BUT_RELEASED)
-		{
-			s_menuSection = MenuSection::Main;
-		}
-	}
-
 
 	//Mode
 	s_modeWidget.setValue(isRunningProgram() ? "Program Mode" : mode == Measurement::TrackingMode::CC ? "CC Mode" : mode == Measurement::TrackingMode::CP ? "CP Mode" : "CR Mode");
@@ -392,22 +235,6 @@ void processMeasurementState()
 	s_targetLabelWidget.render();
 	s_targetWidget.render();
 
-	if (s_measurement.isLoadEnabled() && s_measurement.isLoadSettled()) //skip a few samples
-	{
-		s_graphWidget.addValue(s_voltagePlot, loadTimer, voltage, true);
-		s_graphWidget.addValue(s_currentPlot, loadTimer, current, true);
-		s_graphWidget.addValue(s_powerPlot, loadTimer, power, true);
-		s_graphWidget.addValue(s_resistancePlot, loadTimer, resistance, true);
-		//s_graphWidget.addValue(s_energyPlot, loadTimer, energy, true);
-		//s_graphWidget.addValue(s_chargePlot, loadTimer, charge, true);
-	}
-	s_graphWidget.render();
-
-	if (s_menuSection != MenuSection::Disabled)
-	{
-		s_menu.render(s_canvas, 0);
-	}
-
 	//http://www.rinkydinkelectronics.com/_t_doimageconverter565.php
 	const unsigned short k_4wire16[256] =
 	{
@@ -490,7 +317,7 @@ void processMeasurementState()
 	}
 }
 
-void initMeasurementState()
+void initMeasurementTopUI()
 {
 	int16_t xSpacing = 12;
 	int16_t ySpacing = 6;
@@ -571,37 +398,5 @@ void initMeasurementState()
 
 	s_modeWidget.setFont(&SansSerif_bold_13);
 	s_modeWidget.setPosition(Widget::Position{0, s_windowY - 3});
-
-	s_graphWidget.setPosition(Widget::Position{0, s_timerWidget.getPosition(Widget::Anchor::BottomLeft).y}.move(0, ySpacing * 3), Widget::Anchor::TopLeft);
-	s_graphWidget.setSize(s_canvas.width(), s_canvas.height() - s_graphWidget.getPosition().y - 1);
-	s_voltagePlot = s_graphWidget.addPlot("V", k_voltageColor, 0.1f);
-	s_currentPlot = s_graphWidget.addPlot("A", k_currentColor, 0.1f);
-	s_powerPlot = s_graphWidget.addPlot("W", k_powerColor, 0.1f);
-	s_resistancePlot = s_graphWidget.addPlot("{", k_resistanceColor, 0.1f);
-	s_energyPlot = s_graphWidget.addPlot("Wh", k_energyColor, 0.00000001f);
-	s_chargePlot = s_graphWidget.addPlot("Ah", k_chargeColor, 0.00000001f);
-
-	//s_rangeWidget.setFont(&SansSerif_bold_13);
 }
 
-void beginMeasurementState()
-{
-	s_measurement.setLoadEnabled(false);
-	s_measurement.setCurrentAutoRanging(true);
-	s_measurement.setVoltageAutoRanging(true);
-
-	s_menu.pushSubMenu({
-	                 /* 0 */"Back",
-					 /* 1 */"Target",
-	                 /* 2 */"4 Wire: On",
-					 /* 3 */"Mode: CC",
-					 /* 4 */"Reset Energy",
-					 /* 5 */"Start Program",
-	                 /* 6 */"Stop Program",
-					 /* 7 */"Settings",
-	                }, 0, s_timerWidget.getPosition(Widget::Anchor::BottomLeft).y + 4);
-}
-void endMeasurementState()
-{
-
-}

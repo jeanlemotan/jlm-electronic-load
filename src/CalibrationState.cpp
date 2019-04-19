@@ -126,8 +126,6 @@ static void refreshSubMenu()
 
 static void processMainSection()
 {
-	char buf[64];
-
 	//Mode
 	s_modeWidget.setValue("Cal");
 	s_modeWidget.render();
