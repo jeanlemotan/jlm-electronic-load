@@ -27,14 +27,30 @@ enum class MenuSection
 	Disabled,
 	Main,
 	SetTarget,
+	SetFan,
 	ProgramSelection
 };
 static MenuSection s_menuSection = MenuSection::Disabled;
+
+enum class MenuEntry
+{
+	Back = 0,
+	Target, 
+	_4Wire,
+	Mode,
+	Fan,
+	Reset,
+	StartProgram,
+	StopProgram,
+	Settings		
+};
+
 //static size_t s_menuSelection = 0;
 
 static int32_t s_targetCurrent_mA = 0;
 static int32_t s_targetPower_mW = 0;
 static int32_t s_targetResistance_mO = 0;
+static float s_fan = 0;
 
 static void refreshSubMenu()
 {
@@ -47,17 +63,27 @@ static void refreshSubMenu()
 		sprintf(buf, "Target: %.3f %s", 
 			(mode == Measurement::TrackingMode::CC ? s_targetCurrent_mA : mode == Measurement::TrackingMode::CP ? s_targetPower_mW : s_targetResistance_mO) / 1000.f,
 			(mode == Measurement::TrackingMode::CC ? "A" : mode == Measurement::TrackingMode::CP ? "W" : "{"));
-		s_menu.getSubMenuEntry(1).text = buf;
+		s_menu.getSubMenuEntry((size_t)MenuEntry::Target).text = buf;
 	}
 	else if (s_menuSection == MenuSection::SetTarget)
 	{
 		sprintf(buf, "Target:>%.3f %s", 
 			(mode == Measurement::TrackingMode::CC ? s_targetCurrent_mA : mode == Measurement::TrackingMode::CP ? s_targetPower_mW : s_targetResistance_mO) / 1000.f,
 			(mode == Measurement::TrackingMode::CC ? "A" : mode == Measurement::TrackingMode::CP ? "W" : "{"));
-		s_menu.getSubMenuEntry(1).text = buf;
+		s_menu.getSubMenuEntry((size_t)MenuEntry::Target).text = buf;
+	}
+	if (s_menuSection == MenuSection::Main)
+	{
+		sprintf(buf, "Fan: %d%%", (int)(s_fan * 100.f));
+		s_menu.getSubMenuEntry((size_t)MenuEntry::Fan).text = buf;
+	}
+	else if (s_menuSection == MenuSection::SetFan)
+	{
+		sprintf(buf, "Fan:>%d%%", (int)(s_fan * 100.f));
+		s_menu.getSubMenuEntry((size_t)MenuEntry::Fan).text = buf;
 	}
 	sprintf(buf, "4 Wire: %s", s_measurement.is4WireEnabled() ? "On" : "Off");
-	s_menu.getSubMenuEntry(2) = buf;
+	s_menu.getSubMenuEntry((size_t)MenuEntry::_4Wire) = buf;
 
 	if (mode == Measurement::TrackingMode::None)
 	{
@@ -67,7 +93,7 @@ static void refreshSubMenu()
 	{
 		sprintf(buf, "Mode: %s", mode == Measurement::TrackingMode::CC ? "CC" : mode == Measurement::TrackingMode::CP ? "CP" : "CR");
 	}
-	s_menu.getSubMenuEntry(3) = buf;
+	s_menu.getSubMenuEntry((size_t)MenuEntry::Mode) = buf;
 }
 
 void processMeasurementState()
@@ -82,12 +108,12 @@ void processMeasurementState()
 	if (s_menuSection == MenuSection::Main)
 	{
 		refreshSubMenu();
-		size_t selection = s_menu.process(s_knob);
-		if (selection == 0)
+		MenuEntry selection = (MenuEntry)s_menu.process(s_knob);
+		if (selection == MenuEntry::Back)
 		{
 			s_menuSection = MenuSection::Disabled;
 		}
-		else if (selection == 1)
+		else if (selection == MenuEntry::Target)
 		{
 			s_targetCurrent_mA = s_measurement.getTargetCurrent() * 1000.f;
 			s_targetPower_mW = s_measurement.getTargetPower() * 1000.f;
@@ -95,11 +121,15 @@ void processMeasurementState()
 
 			s_menuSection = MenuSection::SetTarget;
 		}
-		else if (selection == 2)
+		else if (selection == MenuEntry::Fan)
+		{
+			s_menuSection = MenuSection::SetFan;
+		}
+		else if (selection == MenuEntry::_4Wire)
 		{
 			s_measurement.set4WireEnabled(!s_measurement.is4WireEnabled());
 		}
-		else if (selection == 3)
+		else if (selection == MenuEntry::Mode)
 		{
 			mode = mode == Measurement::TrackingMode::CC ? 
 								Measurement::TrackingMode::CP : 
@@ -108,12 +138,12 @@ void processMeasurementState()
 									Measurement::TrackingMode::CC;
 			s_measurement.setTrackingMode(mode);
 		}
-		else if (selection == 4)
+		else if (selection == MenuEntry::Reset)
 		{
 			s_measurement.resetEnergy();
 			s_graphWidget.clear();
 		}
-		else if (selection == 6)
+		else if (selection == MenuEntry::StopProgram)
 		{
 			stopProgram();
 		}
@@ -155,12 +185,26 @@ void processMeasurementState()
 			s_menuSection = MenuSection::Main;
 		}
 	}
+	else if (s_menuSection == MenuSection::SetFan)
+	{
+		int knobDelta = s_knob.encoderChangedAcc();
+		s_fan += knobDelta / 100.f;
+		s_fan = std::max(std::min(s_fan, 1.f), 0.f);
+		s_measurement.setFan(s_fan);
+		refreshSubMenu();
+		if (s_knob.currentButtonState() == BUT_RELEASED)
+		{
+			s_menuSection = MenuSection::Main;
+		}
+	}
 	else if (s_menuSection == MenuSection::Disabled)
 	{
 		if (s_knob.currentButtonState() == BUT_RELEASED)
 		{
 			s_menuSection = MenuSection::Main;
 		}
+		int knobDelta = s_knob.encoderChanged();
+		//setBottomUI()
 	}
 
 	processMeasurementTopUI();
@@ -196,10 +240,11 @@ void beginMeasurementState()
 					 /* 1 */"Target",
 	                 /* 2 */"4 Wire: On",
 					 /* 3 */"Mode: CC",
-					 /* 4 */"Reset Energy",
-					 /* 5 */"Start Program",
-	                 /* 6 */"Stop Program",
-					 /* 7 */"Settings",
+					 /* 4 */"Fan: 0%",
+					 /* 5 */"Reset Energy",
+					 /* 6 */"Start Program",
+	                 /* 7 */"Stop Program",
+					 /* 8 */"Settings",
 	                }, 0, 120);
 }
 void endMeasurementState()

@@ -5,12 +5,12 @@
 
 extern DeltaBitmap s_canvas;
 
-static State s_state = State::None;
+static State s_state = State::Measurement;
 static bool s_firstTime = true;
 
 void setState(State state)
 {
-  if (state == s_state)
+  if (state == s_state && !s_firstTime)
   {
     return;
   }
@@ -26,7 +26,6 @@ void setState(State state)
       endCalibrationState();
     }
   }
-  s_firstTime = false;
 
   s_state = state;
   if (s_state == State::Measurement)
@@ -37,6 +36,8 @@ void setState(State state)
   {
     beginCalibrationState();
   }
+
+  s_firstTime = false;
 }
 
 

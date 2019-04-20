@@ -28,7 +28,7 @@
 
 static Adafruit_ILI9341 s_display = Adafruit_ILI9341(5, 4);
 //static Adafruit_SSD1351 s_display(128, 128, &SPI, 5, 4, 2);
-DeltaBitmap s_canvas(320, 240, 4, 4);
+DeltaBitmap s_canvas(320, 240, 3, 3);
 int16_t s_windowY = 0;
 
 //w, h, cs, dc, mosi, clk, rst

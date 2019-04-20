@@ -114,7 +114,7 @@ void GraphWidget::clear()
 void GraphWidget::render()
 {
 	Position position = getPosition(Anchor::TopLeft);
-	//m_gfx.fillRect(position.x, position.y, m_w, m_h, 0x0861);
+	m_gfx.fillRect(position.x, position.y, m_w, m_h, 0x0861);
 
 	//printf("\nV: ");
 	for (const Plot& plot: m_plots)
