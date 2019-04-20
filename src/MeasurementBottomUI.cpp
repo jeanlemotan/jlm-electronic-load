@@ -4,7 +4,7 @@
 #include "LabelWidget.h"
 #include "GraphWidget.h"
 #include "Settings.h"
-#include "Adafruit_GFX.h"
+#include "DeltaBitmap.h"
 #include "AiEsp32RotaryEncoder.h"
 #include "Button.h"
 #include <driver/adc.h>
@@ -21,7 +21,7 @@
 #include "Fonts/SansSerif_plain_32.h"
 #include "Fonts/SansSerif_bold_32.h"
 
-extern GFXcanvas16 s_canvas;
+extern DeltaBitmap s_canvas;
 extern int16_t s_windowY;
 extern AiEsp32RotaryEncoder s_knob;
 extern Button s_button;

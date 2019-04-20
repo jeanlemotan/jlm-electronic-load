@@ -2,6 +2,7 @@
 
 enum class State
 {
+  None,
   Measurement,
   Calibration
 };

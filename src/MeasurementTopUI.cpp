@@ -4,7 +4,7 @@
 #include "LabelWidget.h"
 #include "GraphWidget.h"
 #include "Settings.h"
-#include "Adafruit_GFX.h"
+#include "DeltaBitmap.h"
 #include "AiEsp32RotaryEncoder.h"
 #include "Button.h"
 #include <driver/adc.h>
@@ -20,7 +20,7 @@
 #include "Fonts/SansSerif_plain_32.h"
 #include "Fonts/SansSerif_bold_32.h"
 
-extern GFXcanvas16 s_canvas;
+extern DeltaBitmap s_canvas;
 extern int16_t s_windowY;
 extern AiEsp32RotaryEncoder s_knob;
 extern Measurement s_measurement;
@@ -115,7 +115,6 @@ void setUnitValue(ValueWidget& widget, float value, uint8_t decimalsMacro, float
 
 void processMeasurementTopUI()
 {
-	s_measurement.process();
 	Measurement::TrackingMode mode = s_measurement.getTrackingMode();
 
 	//Mode
@@ -142,7 +141,6 @@ void processMeasurementTopUI()
 		int16_t border = 3;
 		Widget::Position p = s_currentWidget.getPosition(Widget::Anchor::TopLeft);
 		s_canvas.fillRoundRect(p.x - border, p.y - border, 1000, s_currentWidget.getHeight() + border*2, border, k_currentColor);
-		//s_canvas.fillRect(p.x, p.y, s_currentWidget.getWidth(), s_currentWidget.getHeight(), k_currentColor),
 		s_currentWidget.setTextColor(0x0);
 		setUnitValue(s_targetWidget, s_measurement.getTargetCurrent(), 3, 99.f, 1, 999.999f, "A");
 		trackedColor = k_currentColor;
@@ -309,12 +307,6 @@ void processMeasurementTopUI()
 	//setFanPWM(fanSpeed);
 	setDAC(fanSpeed / 65535.f);
 */
-	updateProgram();
-
-	if (s_measurement.isLoadEnabled() || isRunningProgram())
-	{
-		//printOutput();
-	}
 }
 
 void initMeasurementTopUI()

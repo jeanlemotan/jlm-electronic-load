@@ -9,9 +9,10 @@
 #include "LabelWidget.h"
 #include "ValueWidget.h"
 #include "Button.h"
+#include "DeltaBitmap.h"
 
 
-extern GFXcanvas16 s_canvas;
+extern DeltaBitmap s_canvas;
 extern Button s_button;
 extern int16_t s_windowY;
 extern AiEsp32RotaryEncoder s_knob;

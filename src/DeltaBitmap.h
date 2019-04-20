@@ -11,10 +11,14 @@ public:
   void drawPixel(int16_t x, int16_t y, uint16_t color);
   void fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color);
   void fillScreen(uint16_t color);
+  void drawFastVLine(int16_t x, int16_t y, int16_t w, uint16_t color);
+  void drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color);
 
   void blit(Adafruit_SPITFT& dst);
 
 private:
+  void _fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color);
+
   uint16_t _cellWBits = 0;
   uint16_t _cellHBits = 0;
   uint16_t _cellWMask = 0;
@@ -24,7 +28,7 @@ private:
   uint16_t _cellCountX = 0;
   uint16_t _cellCountY = 0;
 
-  typedef uint16_t CellHash;
+  typedef uint32_t CellHash;
 
   struct Cell
   {
@@ -40,12 +44,14 @@ private:
 
   Cell* acquireCell();
   void releaseCell(Cell* cell);
+  void fillCell(Cell& cell, uint16_t color);
 
   CellHash computeCellHash(Cell& cell) const;
 
   std::vector<Cell*> _cellPool; //owning
   std::vector<Cell*> _cells; //non-owning
   Cell* _clearCell = nullptr; //non-owning
+  uint16_t _clearColor = 0;
 
   std::vector<CellHash> _prevCellHashes;
 };

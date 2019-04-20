@@ -1,11 +1,11 @@
 #include "State.h"
 #include "CalibrationState.h"
 #include "MeasurementState.h"
-#include "Adafruit_GFX.h"
+#include "DeltaBitmap.h"
 
-extern GFXcanvas16 s_canvas;
+extern DeltaBitmap s_canvas;
 
-static State s_state = State::Measurement;
+static State s_state = State::None;
 static bool s_firstTime = true;
 
 void setState(State state)

@@ -216,9 +216,9 @@ void processSDCard()
 // the loop function runs over and over again forever
 void loop()
 {
-  //static uint32_t lastTP = millis();
-  //printf("\nD: %lu", millis() - lastTP);
-  //lastTP = millis();
+  static uint32_t lastTP = millis();
+  printf("\nD: %lu", millis() - lastTP);
+  lastTP = millis();
 
   s_canvas.fillScreen(0);
 

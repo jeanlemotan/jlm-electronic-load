@@ -833,10 +833,3 @@ void Measurement::_threadProc()
 	}
 }
 
-void Measurement::process()
-{
-	//if (!m_impl->thread)
-	{
-		//_threadProc();
-	}
-}

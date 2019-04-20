@@ -104,46 +104,118 @@ void DeltaBitmap::fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t 
 	break;
 	}	
 
-	if (y < 0)
-	{
-		h += y;
-		y = 0;
-	}
-	if (y >= _height)
+    if (x >= _width || y >= _height)
 	{
 		return;
 	}
-	if (y + h > _height)
+    int16_t x2 = x + w - 1;
+	int16_t y2 = y + h - 1;
+    if (x2 < 0 || y2 < 0)
+	{
+		return;
+	}
+
+    // Clip left/top
+    if (x < 0) 
+	{
+        x = 0;
+        w = x2 + 1;
+    }
+    if (y < 0) 
+	{
+        y = 0;
+        h = y2 + 1;
+    }
+
+    // Clip right/bottom
+    if (x2 >= _width) 
+	{
+		w = _width  - x;
+	}
+    if (y2 >= _height) 
 	{
 		h = _height - y;
 	}
-	if (x < 0)
-	{
-		w += x;
-		x = 0;
-	}
-	if (x >= _width)
-	{
-		return;
-	}
-	if (x + w > _width)
-	{
-		w = _width - x;
-	}
 
+	if (w < _cellW || h < _cellH) //rect too small, go for the slow routine
+	{
+		_fillRect(x, y, w, h, color);
+	}
+	else
+	{
+		//we do this (s == slow, f == full rect)
+		//  ssssssssssss <-- Area 0
+		//  sffffffffffs
+		//  sffffffffffs
+		//  ssssssssssss <-- Area 3
+		//  ^          ^	
+		//	Area 1     Area 2
+
+		//Area 0
+		if ((y & _cellHMask) != 0)
+		{
+			int16_t hh = _cellH - (y & _cellHMask);
+			_fillRect(x, y, w, hh, color);
+			y += hh;
+			h -= hh;
+		}
+		//Area 1
+		if ((x & _cellWMask) != 0)
+		{
+			int16_t ww = _cellW - (x & _cellWMask);
+			_fillRect(x, y, ww, h, color);
+			x += ww;
+			w -= ww;
+		}
+		//Area 2
+		if (((x + w) & _cellWMask) != 0)
+		{
+			int16_t ww = (x + w) & _cellWMask;
+			_fillRect(x + w - ww, y, ww, h, color);
+			w -= ww;
+		}
+		//Area 3
+		if (((y + h) & _cellHMask) != 0)
+		{
+			int16_t hh = (y + h) & _cellHMask;
+			_fillRect(x, y + h - hh, w, hh, color);
+			h -= hh;
+		}
+
+		int16_t cx = x >> _cellWBits;
+		int16_t cy = y >> _cellHBits;
+		int16_t cw = w >> _cellWBits;
+		int16_t ch = h >> _cellHBits;
+		for (int16_t j = 0; j < ch; j++)
+		{
+			uint16_t cellIndex = (cy + j) * _cellCountX;
+			for (int16_t i = 0; i < cw; i++)
+			{
+				Cell*& cell = _cells[cellIndex + cx + i];
+				if (!cell || cell == _clearCell)
+				{
+					cell = acquireCell();
+				}
+				fillCell(*cell, color);
+			}
+		}
+	}
+}
+void DeltaBitmap::_fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color)
+{
 	for (int16_t j = 0; j < h; j++)
 	{
 		int16_t yy = y + j;
-		int16_t cy = yy >> _cellHBits;
-		int16_t coy = yy & _cellHMask;
+		int16_t cy = yy >> _cellHBits; //cell Y
+		int16_t coy = yy & _cellHMask; //cell Offset Y
 		uint16_t cellIndex = cy * _cellCountX;
 		uint16_t cp = coy * _cellW;
 
 		for (int16_t i = 0; i < w; i++)
 		{
 			int16_t xx = x + i;
-			int16_t cx = xx >> _cellWBits;
-			int16_t cox = xx & _cellWMask;
+			int16_t cx = xx >> _cellWBits; //cell X
+			int16_t cox = xx & _cellWMask; //cell Offset X
 
 			Cell*& cell = _cells[cellIndex + cx];
 			if (!cell || cell == _clearCell)
@@ -155,15 +227,20 @@ void DeltaBitmap::fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t 
 	}
 }
 
+void DeltaBitmap::drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color)
+{
+	fillRect(x, y, 1, h, color);
+}
+void DeltaBitmap::drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color)
+{
+	fillRect(x, y, w, 1, color);
+}
+
 void DeltaBitmap::fillScreen(uint16_t color)
 {
-	uint16_t cellDataSize = _cellW * _cellH;
-	uint16_t* data = _clearCell->data;
-	for (uint16_t i = 0; i < cellDataSize; i++)
-	{
-		data[i] = color;
-	}
+	fillCell(*_clearCell, color);
 	_clearCell->hash = computeCellHash(*_clearCell);
+	_clearColor = color;
 
 	for (Cell*& cell: _cells)
 	{
@@ -225,9 +302,9 @@ DeltaBitmap::Cell::~Cell()
 DeltaBitmap::Cell* DeltaBitmap::acquireCell()
 {
 	Cell* cell;
-	size_t cellDataSize = _cellW * _cellH;
 	if (_cellPool.empty())
 	{
+		size_t cellDataSize = _cellW * _cellH;
 		cell = new Cell(cellDataSize);
 	}
 	else
@@ -235,19 +312,30 @@ DeltaBitmap::Cell* DeltaBitmap::acquireCell()
 		cell = _cellPool.back();
 		_cellPool.erase(_cellPool.end() - 1);
 	}
-	if (_clearCell != nullptr)
-	{
-		memcpy(cell->data, _clearCell->data, cellDataSize * sizeof(uint16_t));
-	}
-	else
-	{
-		memset(cell->data, 0, cellDataSize * sizeof(uint16_t));		
-	}
+	fillCell(*cell, _clearColor);
 	return cell;
 }
 void DeltaBitmap::releaseCell(Cell* cell)
 {
 	_cellPool.push_back(cell);
+}
+void DeltaBitmap::fillCell(Cell& cell, uint16_t color)
+{
+	size_t cellDataSize = _cellW * _cellH;
+	if (color != 0)
+	{
+		//initialize the cell with the clear color
+		uint16_t* ptr = cell.data;
+		size_t sz = cellDataSize;
+		while (sz-- > 0)
+		{
+			*ptr++ = color;
+		}
+	}
+	else
+	{
+		memset(cell.data, 0, cellDataSize * sizeof(uint16_t));		
+	}
 }
 
 uint32_t murmur32(const void* _buffer, size_t size, uint32_t seed)
@@ -262,7 +350,7 @@ uint32_t murmur32(const void* _buffer, size_t size, uint32_t seed)
 
 	// Initialize the hash to a 'random' value
 
-	uint16_t h = seed ^ static_cast<uint32_t>(size);
+	uint32_t h = seed ^ static_cast<uint32_t>(size);
 
 	// Mix 4 bytes at a time into the hash
 
