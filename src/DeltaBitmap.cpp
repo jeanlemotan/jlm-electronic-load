@@ -12,6 +12,8 @@ DeltaBitmap::DeltaBitmap(uint16_t w, uint16_t h, uint16_t cellWBits, uint16_t ce
 	, _cellHMask((1 << cellHBits) - 1)
 	, _cellW(1 << cellWBits)
 	, _cellH(1 << cellHBits)
+	, _clipX2(w - 1)
+	, _clipY2(h - 1)
 {
 	_cellCountX = w / _cellW;
 	if (w % _cellW != 0)
@@ -39,29 +41,86 @@ DeltaBitmap::~DeltaBitmap()
 	}
 }
 
+void DeltaBitmap::setOpacity(uint8_t opacity)
+{
+	_opacity = opacity;
+} 
+
+void DeltaBitmap::setClipRect(int16_t x, int16_t y, int16_t w, int16_t h)
+{
+	_clipX = x >= 0 ? x : 0;
+	_clipY = y >= 0 ? y : 0;
+	_clipX2 = w >= 1 ? _clipX + w - 1 : _clipX;
+	_clipY2 = h >= 1 ? _clipY + h - 1 : _clipY;
+}
+
+// inline uint16_t blend(uint16_t c0, uint16_t c1, uint8_t a)
+// {
+// 	//565
+// 	//rrrrrggggggbbbbb
+// 	//rrrrr-----gggggg------bbbbb-----
+// }
+
+inline uint16_t blend(uint32_t fg, uint32_t bg, uint8_t alpha)
+{
+    // Alpha converted from [0..255] to [0..31]
+    alpha = ( alpha + 4 ) >> 3;
+
+    // Converts  0000000000000000rrrrrggggggbbbbb
+    //     into  00000gggggg00000rrrrr000000bbbbb
+    // with mask 00000111111000001111100000011111
+    // This is useful because it makes space for a parallel fixed-point multiply
+    bg = (bg | (bg << 16)) & 0b00000111111000001111100000011111;
+    fg = (fg | (fg << 16)) & 0b00000111111000001111100000011111;
+
+    // This implements the linear interpolation formula: result = bg * (1.0 - alpha) + fg * alpha
+    // This can be factorized into: result = bg + (fg - bg) * alpha
+    // alpha is in Q1.5 format, so 0.0 is represented by 0, and 1.0 is represented by 32
+    uint32_t result = (fg - bg) * alpha; // parallel fixed-point multiply of all components
+    result >>= 5;
+    result += bg;
+    result &= 0b00000111111000001111100000011111; // mask out fractional parts
+    return (int16_t)((result >> 16) | result); // contract result
+}
+
+//alpha is [0..31]
+//fg32 is 00000gggggg00000rrrrr000000bbbbb
+inline uint16_t blendRaw(uint32_t fg32, uint32_t bg, uint8_t alpha32)
+{
+    // Converts  0000000000000000rrrrrggggggbbbbb
+    //     into  00000gggggg00000rrrrr000000bbbbb
+    // with mask 00000111111000001111100000011111
+    // This is useful because it makes space for a parallel fixed-point multiply
+    bg = (bg | (bg << 16)) & 0b00000111111000001111100000011111;
+
+    // This implements the linear interpolation formula: result = bg * (1.0 - alpha) + fg * alpha
+    // This can be factorized into: result = bg + (fg - bg) * alpha
+    // alpha is in Q1.5 format, so 0.0 is represented by 0, and 1.0 is represented by 32
+    uint32_t result = (fg32 - bg) * alpha32; // parallel fixed-point multiply of all components
+    result >>= 5;
+    result += bg;
+    result &= 0b00000111111000001111100000011111; // mask out fractional parts
+    return (int16_t)((result >> 16) | result); // contract result
+}
+
+inline uint8_t encodeAlpha(uint8_t alpha)
+{
+    return (alpha + 4) >> 3;
+}
+inline uint8_t encodeColor(uint16_t color)
+{
+    return (color | (color << 16)) & 0b00000111111000001111100000011111;
+}
+
 void DeltaBitmap::drawPixel(int16_t x, int16_t y, uint16_t color)
 {
-	if ((x < 0) || (y < 0) || (x >= _width) || (y >= _height)) 
+	writePixel(x, y, color);
+}
+void DeltaBitmap::writePixel(int16_t x, int16_t y, uint16_t color)
+{
+	if (x < _clipX || y < _clipY || x > _clipX2 || y >= _clipY2) 
 	{
 		return;
-	}
-
-	int16_t t;
-	switch(rotation) {
-	case 1:
-		t = x;
-		x = _width  - 1 - y;
-		y = t;
-	break;
-	case 2:
-		x = _width  - 1 - x;
-		y = _height - 1 - y;
-	break;
-	case 3:
-		t = x;
-		x = y;
-		y = _height - 1 - t;
-	break;
 	}
 
 	int16_t cx = x >> _cellWBits;
@@ -71,70 +130,52 @@ void DeltaBitmap::drawPixel(int16_t x, int16_t y, uint16_t color)
 
 	uint16_t cellIndex = cy * _cellCountX + cx;
 	Cell*& cell = _cells[cellIndex];
-	if (!cell || cell == _clearCell)
+	cell = cell ? cell : acquireCell();
+
+	uint16_t& dst = cell->data[coy * _cellW + cox];
+	if (_opacity == 0xFF)
 	{
-		cell = acquireCell();
+		dst = color;
 	}
-	cell->data[coy * _cellW + cox] = color;
+	else
+	{
+		dst = blend(color, dst, _opacity);		
+	}
 }
 
 void DeltaBitmap::fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color)
 {
-	int16_t t;
-	switch(rotation) {
-	case 1:
-		t = x;
-		x = _width  - 1 - y;
-		y = t;
-		t = w;
-		w = h;
-		h = t;
-	break;
-	case 2:
-		x = _width  - 1 - x;
-		y = _height - 1 - y;
-	break;
-	case 3:
-		t = x;
-		x = y;
-		y = _height - 1 - t;
-		t = w;
-		w = h;
-		h = t;
-	break;
-	}	
-
-    if (x >= _width || y >= _height)
+    if (x > _clipX2 || y > _clipY2)
 	{
 		return;
 	}
     int16_t x2 = x + w - 1;
 	int16_t y2 = y + h - 1;
-    if (x2 < 0 || y2 < 0)
+    if (x2 < _clipX || y2 < _clipY)
 	{
 		return;
 	}
 
     // Clip left/top
-    if (x < 0) 
+    if (x < _clipX) 
 	{
-        x = 0;
-        w = x2 + 1;
+        x = _clipX;
+        w = x2 - x + 1;
     }
-    if (y < 0) 
+    if (y < _clipY) 
 	{
-        y = 0;
-        h = y2 + 1;
+        y = _clipY;
+        h = y2 - y + 1;
     }
 
     // Clip right/bottom
-    if (x2 >= _width) 
+    if (x2 > _clipX2)
 	{
-		w = _width  - x;
+		w = _clipX2 - x + 1;
 	}
-    if (y2 >= _height) 
+    if (y2 >= _clipY2) 
 	{
-		h = _height - y;
+		h = _clipY2 - y + 1;
 	}
 
 	if (w < _cellW || h < _cellH) //rect too small, go for the slow routine
@@ -143,13 +184,11 @@ void DeltaBitmap::fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t 
 	}
 	else
 	{
-		//we do this (s == slow, f == full rect)
-		//  ssssssssssss <-- Area 0
-		//  sffffffffffs
-		//  sffffffffffs
-		//  ssssssssssss <-- Area 3
-		//  ^          ^	
-		//	Area 1     Area 2
+		//these are the areas. 0, 1, 2, 3 are partial cells, 4 are full cells
+		//  000000000000
+		//  144444444442
+		//  144444444442
+		//  133333333332
 
 		//Area 0
 		if ((y & _cellHMask) != 0)
@@ -182,6 +221,8 @@ void DeltaBitmap::fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t 
 			h -= hh;
 		}
 
+		//Area 4 - full cells only
+		uint16_t cellDataSize = _cellW * _cellH;
 		int16_t cx = x >> _cellWBits;
 		int16_t cy = y >> _cellHBits;
 		int16_t cw = w >> _cellWBits;
@@ -192,17 +233,17 @@ void DeltaBitmap::fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t 
 			for (int16_t i = 0; i < cw; i++)
 			{
 				Cell*& cell = _cells[cellIndex + cx + i];
-				if (!cell || cell == _clearCell)
-				{
-					cell = acquireCell();
-				}
-				fillCell(*cell, color);
+				cell = cell ? cell : acquireCell();
+				fillCell(*cell, color, _opacity);
 			}
 		}
 	}
 }
 void DeltaBitmap::_fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color)
 {
+	uint8_t a32 = encodeAlpha(_opacity);
+	uint32_t c32 = encodeColor(color);
+
 	for (int16_t j = 0; j < h; j++)
 	{
 		int16_t yy = y + j;
@@ -211,18 +252,30 @@ void DeltaBitmap::_fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t
 		uint16_t cellIndex = cy * _cellCountX;
 		uint16_t cp = coy * _cellW;
 
-		for (int16_t i = 0; i < w; i++)
+		if (_opacity == 0xFF)
 		{
-			int16_t xx = x + i;
-			int16_t cx = xx >> _cellWBits; //cell X
-			int16_t cox = xx & _cellWMask; //cell Offset X
-
-			Cell*& cell = _cells[cellIndex + cx];
-			if (!cell || cell == _clearCell)
+			for (int16_t i = 0; i < w; i++)
 			{
-				cell = acquireCell();
+				int16_t xx = x + i;
+				int16_t cx = xx >> _cellWBits; //cell X
+				int16_t cox = xx & _cellWMask; //cell Offset X
+				Cell*& cell = _cells[cellIndex + cx];
+				cell = cell ? cell : acquireCell();
+				cell->data[cp + cox] = color;
 			}
-			cell->data[cp + cox] = color;
+		}
+		else
+		{
+			for (int16_t i = 0; i < w; i++)
+			{
+				int16_t xx = x + i;
+				int16_t cx = xx >> _cellWBits; //cell X
+				int16_t cox = xx & _cellWMask; //cell Offset X
+				Cell*& cell = _cells[cellIndex + cx];
+				cell = cell ? cell : acquireCell();
+				uint16_t& dst = cell->data[cp + cox];
+				dst = blendRaw(c32, dst, a32);		
+			}
 		}
 	}
 }
@@ -238,13 +291,13 @@ void DeltaBitmap::drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color)
 
 void DeltaBitmap::fillScreen(uint16_t color)
 {
-	fillCell(*_clearCell, color);
+	fillCell(*_clearCell, color, 0xFF);
 	_clearCell->hash = computeCellHash(*_clearCell);
 	_clearColor = color;
 
 	for (Cell*& cell: _cells)
 	{
-		if (cell && cell != _clearCell)
+		if (cell)
 		{
 			releaseCell(cell);
 		}
@@ -312,17 +365,29 @@ DeltaBitmap::Cell* DeltaBitmap::acquireCell()
 		cell = _cellPool.back();
 		_cellPool.erase(_cellPool.end() - 1);
 	}
-	fillCell(*cell, _clearColor);
+	fillCell(*cell, _clearColor, 0xFF);
 	return cell;
 }
 void DeltaBitmap::releaseCell(Cell* cell)
 {
 	_cellPool.push_back(cell);
 }
-void DeltaBitmap::fillCell(Cell& cell, uint16_t color)
+void DeltaBitmap::fillCell(Cell& cell, uint16_t color, uint8_t opacity)
 {
 	size_t cellDataSize = _cellW * _cellH;
-	if (color != 0)
+	if (opacity != 0xFF)
+	{
+		uint8_t a32 = encodeAlpha(opacity);
+		uint32_t c32 = encodeColor(color);
+		uint16_t* ptr = cell.data;
+		size_t sz = cellDataSize;
+		while (sz-- > 0)
+		{
+			*ptr = blendRaw(c32, *ptr, a32);
+			ptr++;
+		}
+	}
+	else if (color != 0)
 	{
 		//initialize the cell with the clear color
 		uint16_t* ptr = cell.data;

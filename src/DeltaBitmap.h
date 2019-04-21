@@ -8,6 +8,10 @@ class DeltaBitmap : public Adafruit_GFX
 public:
   DeltaBitmap(uint16_t w, uint16_t h, uint16_t cellWBits, uint16_t cellHBits);
   ~DeltaBitmap();
+
+  void setOpacity(uint8_t opacity);
+  void setClipRect(int16_t x, int16_t y, int16_t w, int16_t h);
+
   void drawPixel(int16_t x, int16_t y, uint16_t color);
   void fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color);
   void fillScreen(uint16_t color);
@@ -17,6 +21,7 @@ public:
   void blit(Adafruit_SPITFT& dst);
 
 private:
+  void writePixel(int16_t x, int16_t y, uint16_t color);
   void _fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color);
 
   uint16_t _cellWBits = 0;
@@ -43,8 +48,8 @@ private:
   };
 
   Cell* acquireCell();
-  void releaseCell(Cell* cell);
-  void fillCell(Cell& cell, uint16_t color);
+  inline void releaseCell(Cell* cell);
+  inline void fillCell(Cell& cell, uint16_t color, uint8_t opacity);
 
   CellHash computeCellHash(Cell& cell) const;
 
@@ -52,6 +57,11 @@ private:
   std::vector<Cell*> _cells; //non-owning
   Cell* _clearCell = nullptr; //non-owning
   uint16_t _clearColor = 0;
+  uint8_t _opacity = 0xFF;
+  int16_t _clipX = 0;
+  int16_t _clipY = 0;
+  int16_t _clipX2 = 1;
+  int16_t _clipY2 = 1;
 
   std::vector<CellHash> _prevCellHashes;
 };
