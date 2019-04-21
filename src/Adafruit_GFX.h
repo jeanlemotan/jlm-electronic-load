@@ -147,6 +147,12 @@ class Adafruit_GFX : public Print {
   uint16_t
     textcolor,      ///< 16-bit background color for print()
     textbgcolor;    ///< 16-bit text color for print()
+
+  bool _renderBg = false;    
+  uint8_t _metaTagType = 0; ///< which type of # tag we're in the middle of
+  uint8_t _colorTagIndex = 0;
+  uint16_t _colorTagValue = 0;
+  
   uint8_t
     textsize,       ///< Desired magnification of text to print()
     rotation;       ///< Display rotation (0 thru 3)

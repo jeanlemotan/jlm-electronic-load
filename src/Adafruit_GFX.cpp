@@ -1114,19 +1114,27 @@ void Adafruit_GFX::drawChar(int16_t x, int16_t y, unsigned char c,
 
         startWrite();
         for(yy=0; yy<h; yy++) {
-            for(xx=0; xx<w; xx++) {
-                if(!(bit++ & 7)) {
-                    bits = pgm_read_byte(&bitmap[bo++]);
-                }
-                if(bits & 0x80) {
-                    if(size == 1) {
-                        writePixel(x+xo+xx, y+yo+yy, color);
-                    } else {
-                        writeFillRect(x+(xo16+xx)*size, y+(yo16+yy)*size,
-                          size, size, color);
+            if (size == 1) {
+                for(xx=0; xx<w; xx++) {
+                    if(!(bit++ & 7)) {
+                        bits = pgm_read_byte(&bitmap[bo++]);
                     }
+                    if(bits & 0x80) {
+                        writePixel(x+xo+xx, y+yo+yy, color);
+                    }
+                    bits <<= 1;
                 }
-                bits <<= 1;
+            } else {
+                for(xx=0; xx<w; xx++) {
+                    if(!(bit++ & 7)) {
+                        bits = pgm_read_byte(&bitmap[bo++]);
+                    }
+                    if(bits & 0x80) {
+                        writeFillRect(x+(xo16+xx)*size, y+(yo16+yy)*size,
+                        size, size, color);
+                    }
+                    bits <<= 1;
+                }
             }
         }
         endWrite();
@@ -1140,6 +1148,56 @@ void Adafruit_GFX::drawChar(int16_t x, int16_t y, unsigned char c,
 */
 /**************************************************************************/
 size_t Adafruit_GFX::write(uint8_t c) {
+    if (_metaTagType == 1) {
+        if (c == '#') { //escape, we actually want a #
+            _metaTagType = 0;
+        } else {
+            _metaTagType = c;
+            return 1;
+        }
+    } else if (_metaTagType == 0) { 
+        if (c == '#') { //enter meta mode
+            _colorTagIndex = 0;
+            _colorTagValue = 0;
+            _metaTagType = 1; //detect the meta using the next char
+            return 1;
+        }
+    } else {
+        if (_metaTagType == 'b' && _colorTagIndex == 0) {
+            if (c == '+') { //bg on
+                _renderBg = true;
+                _metaTagType = 0;
+                return 1;
+            }
+            else if (c == '-') { //bg off
+                _renderBg = false;
+                _metaTagType = 0;
+                return 1;
+            }
+        }
+        if (_metaTagType == 'f' || _metaTagType == 'b') { //fg/bg color
+            if ((c >= 'A' && c <= 'F') ||
+                (c >= 'a' && c <= 'f') ||
+                (c >= '0' && c <= '9')) {
+                uint16_t p[] = {0x1000, 0x100, 0x10, 0x1};
+                uint16_t digit = (c >= 'A' && c <= 'F') ? 0xA + c - 'A'
+                                : (c >= 'a' && c <= 'f') ? 0xA + c - 'a'
+                                : c - '0';
+                _colorTagValue += digit * p[_colorTagIndex++];
+                if (_colorTagIndex >= 4) {
+                    if (_metaTagType == 'f')
+                        textcolor = _colorTagValue;
+                    else
+                        textbgcolor = _colorTagValue;
+                    _metaTagType = 0;
+                }
+                return 1;
+            } else {
+                _metaTagType = 0;
+            }
+        } 
+    }
+
     if(!gfxFont) { // 'Classic' built-in font
 
         if(c == '\n') {                        // Newline?
@@ -1173,6 +1231,9 @@ size_t Adafruit_GFX::write(uint8_t c) {
                         cursor_x  = 0;
                         cursor_y += (int16_t)textsize *
                           (uint8_t)pgm_read_byte(&gfxFont->yAdvance);
+                    }
+                    if (_renderBg) {
+                        fillRect(cursor_x, cursor_y - h - 1, w + 2, h + 2, textbgcolor);
                     }
                     drawChar(cursor_x, cursor_y, c, textcolor, textbgcolor, textsize);
                 }
