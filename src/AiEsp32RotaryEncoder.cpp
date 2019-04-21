@@ -116,8 +116,8 @@ int16_t AiEsp32RotaryEncoder::encoderChangedAcc() {
 		float dtf = dt / 1000.f;
 		lastAccTP = millis();
 
-		float acc = delta / dtf;
-		int16_t d = acc * acc * 0.1f * (delta < 0 ? -1.f : 1.f);
+		float acc = abs(delta / dtf);
+		int16_t d = acc * 0.1f * (delta < 0 ? -1.f : 1.f);
 		if (d == 0)
 		{
 			d = delta < 0 ? -1 : 1;
