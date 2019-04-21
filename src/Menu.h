@@ -4,7 +4,7 @@
 #include <string>
 #include "AiEsp32RotaryEncoder.h"
 
-class Adafruit_GFX;
+class DeltaBitmap;
 
 class Menu
 {
@@ -41,7 +41,7 @@ public:
 
     size_t process(AiEsp32RotaryEncoder& knob);
 
-    void render(Adafruit_GFX& display, size_t maxEntries);
+    void render(DeltaBitmap& display, size_t maxEntries);
 
 private:
     Entry m_emptyEntry;
@@ -63,5 +63,5 @@ private:
     float m_targetX = 0;
     float m_crtX = 0;
 
-    void render(Adafruit_GFX& display, SubMenu& data, size_t maxEntries);
+    void render(DeltaBitmap& display, SubMenu& data, size_t maxEntries);
 };

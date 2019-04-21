@@ -54,44 +54,53 @@ static float s_fan = 0;
 
 static void refreshSubMenu()
 {
-	char buf[32];
+	char buf[64];
+
+	uint16_t modeColors[] = {0xFFFF, k_currentColor, k_powerColor, k_resistanceColor};
+	const char* modeNames[] = {"None", "CC", "CP", "CR"};
+	const char* modeUnits[] = {"-", "A", "W", "}"};
+	int32_t* modeTargetValues[] = {&s_targetCurrent_mA, &s_targetCurrent_mA, &s_targetPower_mW, &s_targetResistance_mO};
 
 	Measurement::TrackingMode mode = s_measurement.getTrackingMode();
 
 	if (s_menuSection == MenuSection::Main)
 	{
-		sprintf(buf, "Target: %.3f %s", 
-			(mode == Measurement::TrackingMode::CC ? s_targetCurrent_mA : mode == Measurement::TrackingMode::CP ? s_targetPower_mW : s_targetResistance_mO) / 1000.f,
-			(mode == Measurement::TrackingMode::CC ? "A" : mode == Measurement::TrackingMode::CP ? "W" : "{"));
+		sprintf(buf, "#f7CF7Target: #f%04X%.3f %s", 
+			modeColors[(int)s_measurement.getTrackingMode()],
+			*modeTargetValues[(int)s_measurement.getTrackingMode()] / 1000.f,
+			modeUnits[(int)s_measurement.getTrackingMode()]);
 		s_menu.getSubMenuEntry((size_t)MenuEntry::Target).text = buf;
 	}
 	else if (s_menuSection == MenuSection::SetTarget)
 	{
-		sprintf(buf, "Target:>%.3f %s", 
-			(mode == Measurement::TrackingMode::CC ? s_targetCurrent_mA : mode == Measurement::TrackingMode::CP ? s_targetPower_mW : s_targetResistance_mO) / 1000.f,
-			(mode == Measurement::TrackingMode::CC ? "A" : mode == Measurement::TrackingMode::CP ? "W" : "{"));
+		sprintf(buf, "#fBBCETarget: #f%04X%.3f %s", 
+			modeColors[(int)s_measurement.getTrackingMode()],
+			*modeTargetValues[(int)s_measurement.getTrackingMode()] / 1000.f,
+			modeUnits[(int)s_measurement.getTrackingMode()]);
 		s_menu.getSubMenuEntry((size_t)MenuEntry::Target).text = buf;
 	}
 	if (s_menuSection == MenuSection::Main)
 	{
-		sprintf(buf, "Fan: %d%%", (int)(s_fan * 100.f));
+		sprintf(buf, "#f7CF7Fan: %d%%", (int)(s_fan * 100.f));
 		s_menu.getSubMenuEntry((size_t)MenuEntry::Fan).text = buf;
 	}
 	else if (s_menuSection == MenuSection::SetFan)
 	{
-		sprintf(buf, "Fan:>%d%%", (int)(s_fan * 100.f));
+		sprintf(buf, "#fBBCEFan: %d%%", (int)(s_fan * 100.f));
 		s_menu.getSubMenuEntry((size_t)MenuEntry::Fan).text = buf;
 	}
-	sprintf(buf, "4 Wire: %s", s_measurement.is4WireEnabled() ? "On" : "Off");
+	sprintf(buf, "#f7CF74 Wire: %s", s_measurement.is4WireEnabled() ? "On" : "Off");
 	s_menu.getSubMenuEntry((size_t)MenuEntry::_4Wire) = buf;
 
 	if (mode == Measurement::TrackingMode::None)
 	{
-		sprintf(buf, "Mode: None");
+		sprintf(buf, "#f7CF7Mode: None");
 	}
 	else
 	{
-		sprintf(buf, "Mode: %s", mode == Measurement::TrackingMode::CC ? "CC" : mode == Measurement::TrackingMode::CP ? "CP" : "CR");
+		sprintf(buf, "#f7CF7Mode: #f%04X%s", 
+					modeColors[(int)s_measurement.getTrackingMode()],
+					modeNames[(int)s_measurement.getTrackingMode()]);
 	}
 	s_menu.getSubMenuEntry((size_t)MenuEntry::Mode) = buf;
 }
@@ -204,7 +213,7 @@ void processMeasurementState()
 			s_menuSection = MenuSection::Main;
 		}
 		int knobDelta = s_knob.encoderChanged();
-		//setBottomUI()
+		//setMeasurementBottomUISection(getMeasurementBottomUISection() + knobDelta);
 	}
 
 	processMeasurementTopUI();
@@ -236,15 +245,15 @@ void beginMeasurementState()
 	s_measurement.setVoltageAutoRanging(true);
 
 	s_menu.pushSubMenu({
-	                 /* 0 */"Back",
-					 /* 1 */"Target",
-	                 /* 2 */"4 Wire: On",
-					 /* 3 */"Mode: CC",
-					 /* 4 */"Fan: 0%",
-					 /* 5 */"Reset Energy",
-					 /* 6 */"Start Program",
-	                 /* 7 */"Stop Program",
-					 /* 8 */"Settings",
+	                 "#f7CF7Back",
+					 "#f7CF7Target",
+	                 "#f7CF74 Wire: On",
+					 "#f7CF7Mode: CC",
+					 "#f7CF7Fan: 0%",
+					 "#f7CF7Reset Energy",
+					 "#f7CF7Start Program",
+	                 "#f7CF7Stop Program",
+					 "#f7CF7Settings",
 	                }, 0, 120);
 }
 void endMeasurementState()

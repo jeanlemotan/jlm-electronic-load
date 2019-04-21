@@ -1,5 +1,5 @@
 #include "Menu.h"
-#include "Adafruit_GFX.h"
+#include "DeltaBitmap.h"
 #include <algorithm>
 
 constexpr size_t MENU_WIDTH = 200;
@@ -116,7 +116,7 @@ size_t Menu::process(AiEsp32RotaryEncoder& knob)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Menu::render(Adafruit_GFX& display, size_t maxEntries)
+void Menu::render(DeltaBitmap& display, size_t maxEntries)
 {
     if (m_subMenus.empty())
     {
@@ -147,7 +147,7 @@ void Menu::render(Adafruit_GFX& display, size_t maxEntries)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Menu::render(Adafruit_GFX& display, SubMenu& subMenu, size_t maxEntries)
+void Menu::render(DeltaBitmap& display, SubMenu& subMenu, size_t maxEntries)
 {
     int16_t parentX = static_cast<int16_t>(m_crtX + 0.5f);
     int16_t x = subMenu.x - parentX;
@@ -190,7 +190,10 @@ void Menu::render(Adafruit_GFX& display, SubMenu& subMenu, size_t maxEntries)
 
     display.setTextWrap(false);
 
+    display.setOpacity(128);
     display.fillRect(x, y, display.width(), maxEntries*entryH + borderH*2, 0); 
+    display.setOpacity(255);
+
     for (int16_t xx = 0; xx < display.width(); xx += 3)
     {
         display.drawPixel(x + xx, y, k_topBorderColor);
