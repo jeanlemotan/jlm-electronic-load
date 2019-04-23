@@ -116,7 +116,7 @@ void DeltaBitmap::drawPixel(int16_t x, int16_t y, uint16_t color)
 {
 	writePixel(x, y, color);
 }
-void DeltaBitmap::writePixel(int16_t x, int16_t y, uint16_t color)
+void DeltaBitmap::writePixel(int16_t x, int16_t y, uint16_t color, uint8_t alpha)
 {
 	if (x < _clipX || y < _clipY || x > _clipX2 || y >= _clipY2) 
 	{
@@ -133,14 +133,19 @@ void DeltaBitmap::writePixel(int16_t x, int16_t y, uint16_t color)
 	cell = cell ? cell : acquireCell();
 
 	uint16_t& dst = cell->data[coy * _cellW + cox];
-	if (_opacity == 0xFF)
+	if (alpha == 0xFF)
 	{
 		dst = color;
 	}
 	else
 	{
-		dst = blend(color, dst, _opacity);		
+		dst = blend(color, dst, alpha);		
 	}
+}
+
+void DeltaBitmap::writePixel(int16_t x, int16_t y, uint16_t color)
+{
+	writePixel(x, y, color, _opacity);
 }
 
 void DeltaBitmap::fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color)

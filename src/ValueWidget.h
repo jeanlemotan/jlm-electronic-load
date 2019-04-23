@@ -15,7 +15,6 @@ public:
 	void setTextColor(uint16_t color);
 	void setValueColor(uint16_t color);
 	void setSuffixColor(uint16_t color);
-	void setTextScale(uint8_t scale);
 	void setUseContentHeight(bool enabled);
 	void setUsePadding(bool enabled);
 
@@ -39,13 +38,12 @@ private:
 	const GFXfont* m_valueFont = nullptr;
 	const GFXfont* m_suffixFont = nullptr;
 
-	char m_suffix[8] = { 0 };
+	std::string m_suffix;
 	enum DirtyFlags
 	{
 		DirtyFlagGeometry = 1 << 0
 	};
 	mutable uint8_t m_dirtyFlags = 0xFF;
-	uint8_t m_textScale = 1;
 	uint8_t m_decimals = 3;
 	mutable int16_t m_w = 0;
 	mutable int16_t m_h = 0;

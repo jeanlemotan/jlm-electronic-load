@@ -83,7 +83,7 @@ Menu::Entry& Menu::getSubMenuEntry(size_t idx)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-size_t Menu::process(AiEsp32RotaryEncoder& knob)
+size_t Menu::process(RotaryEncoder& knob)
 {
     if (m_subMenus.empty() || m_crtSubMenuIdx >= m_subMenus.size())
     {
@@ -92,7 +92,7 @@ size_t Menu::process(AiEsp32RotaryEncoder& knob)
 
     SubMenu& crtSubMenu = m_subMenus[m_crtSubMenuIdx];
 
-    int32_t delta = knob.encoderChanged();
+    int32_t delta = knob.encoderDelta();
 
     int32_t entry = static_cast<int>(crtSubMenu.crtEntry) + delta;
     if (entry < 0)
@@ -106,7 +106,7 @@ size_t Menu::process(AiEsp32RotaryEncoder& knob)
         crtSubMenu.crtEntry = 0;
     }
 
-    if (knob.currentButtonState() == BUT_RELEASED)
+	if (knob.buttonState() == RotaryEncoder::ButtonState::Released)
     {
         return crtSubMenu.crtEntry;
     }

@@ -91,14 +91,13 @@ void AiEsp32RotaryEncoder::setBoundaries(int16_t minEncoderValue, int16_t maxEnc
 	this->_circleValues = circleValues;
 }
 
-
-
 int16_t AiEsp32RotaryEncoder::readEncoder()
 {
 	return (this->encoder0Pos / 4);
 }
 
-int16_t AiEsp32RotaryEncoder::encoderChanged() {
+int16_t AiEsp32RotaryEncoder::encoderDelta() 
+{
 	int16_t _encoder0Pos = readEncoder();
 	
 	int16_t encoder0Diff = _encoder0Pos - this->lastReadEncoder0Pos;
@@ -107,8 +106,9 @@ int16_t AiEsp32RotaryEncoder::encoderChanged() {
 	return encoder0Diff;
 }
 
-int16_t AiEsp32RotaryEncoder::encoderChangedAcc() {
-	int16_t delta = encoderChanged();
+int16_t AiEsp32RotaryEncoder::encoderDeltaAcc() 
+{
+	int16_t delta = encoderDelta();
 	if (delta != 0)
 	{
 		int32_t dt = millis() - lastAccTP;
@@ -133,56 +133,62 @@ void AiEsp32RotaryEncoder::setup(void (*ISR_callback)(void))
 	attachInterrupt(digitalPinToInterrupt(this->encoderBPin), ISR_callback, CHANGE);
 }
 
-
 void AiEsp32RotaryEncoder::begin()
 {
 	this->lastReadEncoder0Pos = 0;
 	//Serial.begin(115200);
-	if (this->encoderVccPin >= 0) {
-		pinMode(this->encoderVccPin, OUTPUT);	digitalWrite(this->encoderVccPin, 1);//Vcc for encoder 
+	if (this->encoderVccPin >= 0) 
+	{
+		pinMode(this->encoderVccPin, OUTPUT);	
+		digitalWrite(this->encoderVccPin, 1);//Vcc for encoder 
 	}
 	//Serial.println("Enable rotary encoder ISR:");
 	// Initialize rotary encoder reading and decoding
 	this->previous_butt_state = 0;
-	if (this->encoderButtonPin >= 0) {
+	if (this->encoderButtonPin >= 0) 
+	{
 		pinMode(this->encoderButtonPin, INPUT_PULLUP);
 	}
 }
 
-ButtonState AiEsp32RotaryEncoder::currentButtonState()
+RotaryEncoder::ButtonState AiEsp32RotaryEncoder::buttonState()
 {
-	if (!this->isEnabled) {
-		return BUT_DISABLED;
+	if (!this->isEnabled) 
+	{
+		return ButtonState::Disabled;
 	}
 
 	uint8_t butt_state = !digitalRead(this->encoderButtonPin);
-
 
 	if (butt_state && !this->previous_butt_state)
 	{
 		this->previous_butt_state = true;
 		//Serial.println("Button Pushed");
-		return BUT_PUSHED;
+		return ButtonState::Pressed;
 	}
 	if (!butt_state && this->previous_butt_state)
 	{
 		this->previous_butt_state = false;
 		//Serial.println("Button Released");
-		return BUT_RELEASED; 
+		return ButtonState::Released;
 	}
-	return (butt_state ? BUT_DOWN : BUT_UP);
+	return (butt_state ? ButtonState::Down : ButtonState::Up);
 }
 
-void AiEsp32RotaryEncoder::reset(int16_t newValue_) {
+void AiEsp32RotaryEncoder::reset(int16_t newValue_) 
+{
 	newValue_ = newValue_ * 2;
 	this->encoder0Pos = newValue_;
 	if (this->encoder0Pos > this->_maxEncoderValue) this->encoder0Pos = this->_circleValues ? this->_minEncoderValue : this->_maxEncoderValue;
 	if (this->encoder0Pos < this->_minEncoderValue) this->encoder0Pos = this->_circleValues ? this->_maxEncoderValue : this->_minEncoderValue;	
 }
 
-void AiEsp32RotaryEncoder::enable() {
+void AiEsp32RotaryEncoder::enable() 
+{
 	this->isEnabled = true;
 }
-void AiEsp32RotaryEncoder::disable() {
+
+void AiEsp32RotaryEncoder::disable() 
+{
 	this->isEnabled = false;
 }

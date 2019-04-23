@@ -4,7 +4,7 @@ ValueWidget::ValueWidget(Adafruit_GFX& gfx, float value, const char* suffix)
 	: WidgetBase(gfx)
 	, m_value(value)
 {
-	strcpy(m_suffix, suffix);
+	m_suffix = suffix ? suffix : "";
 }
 void ValueWidget::setValueFont(const GFXfont* font)
 {
@@ -19,7 +19,12 @@ void ValueWidget::setSuffixFont(const GFXfont* font)
 
 void ValueWidget::setSuffix(const char* suffix)
 {
-	strcpy(m_suffix, suffix);
+	suffix = suffix ? suffix : "";
+	if (m_suffix == suffix)
+	{
+		return;
+	}
+	m_suffix = suffix;
 	m_dirtyFlags |= DirtyFlagGeometry;
 }
 void ValueWidget::setDecimals(uint8_t decimals)
@@ -57,14 +62,6 @@ void ValueWidget::setSuffixColor(uint16_t color)
 	}
 }
 
-void ValueWidget::setTextScale(uint8_t scale)
-{
-	if (m_textScale != scale)
-	{
-		m_textScale = scale;
-		m_dirtyFlags |= DirtyFlagGeometry;
-	}
-}
 void ValueWidget::setUseContentHeight(bool enabled)
 {
 	if (m_useContentHeight != enabled)
@@ -102,7 +99,6 @@ void ValueWidget::render()
 	const GFXfont* oldFont = m_gfx.getFont();
 
 	m_gfx.setTextColor(m_valueColor);
-	m_gfx.setTextSize(m_textScale);
 	m_gfx.setFont(m_valueFont);
 
 	char str[16];
@@ -113,11 +109,11 @@ void ValueWidget::render()
 	//printf("X: '%s', %d, %d, %d\n", str, m_x, x, m_gfx.getTextWidth(str));
 	m_gfx.setCursor(x, position.y);
 	m_gfx.print(str);
-	if (m_suffix[0] != '\0')
+	if (!m_suffix.empty())
 	{
 		m_gfx.setTextColor(m_suffixColor);
 		m_gfx.setFont(m_suffixFont);
-		m_gfx.print(m_suffix);
+		m_gfx.print(m_suffix.c_str());
 	}
 
 	m_gfx.setFont(oldFont);
@@ -192,7 +188,6 @@ void ValueWidget::updateGeometry() const
 	valueToString(str + offset);
 	int16_t x, y;
 	uint16_t w, h;
-	m_gfx.setTextSize(m_textScale);
 	m_gfx.setFont(m_valueFont);
 	m_gfx.getTextBounds(str + contentOffset, 0, 0, &x, &y, &w, &h);
 	m_cw = x + w;
@@ -206,10 +201,10 @@ void ValueWidget::updateGeometry() const
 	{
 		m_h = m_valueFont->yAdvance;
 	}
-	if (m_suffix[0] != '\0')
+	if (!m_suffix.empty())
 	{
 		m_gfx.setFont(m_suffixFont);
-		m_gfx.getTextBounds(m_suffix, 0, 0, &x, &y, &w, &h);
+		m_gfx.getTextBounds(m_suffix.c_str(), 0, 0, &x, &y, &w, &h);
 		m_ch = std::max<int16_t>(m_ch, h);
 		m_cw += x + w;
 		m_w += x + w;

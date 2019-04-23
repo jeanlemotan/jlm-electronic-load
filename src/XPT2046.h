@@ -20,37 +20,29 @@
  * THE SOFTWARE.
  */
 
-#ifndef _XPT2046_Touchscreen_h_
-#define _XPT2046_Touchscreen_h_
+#pragma once
 
 #include "Arduino.h"
 #include <SPI.h>
+#include "Touchscreen.h"
 
 #if ARDUINO < 10600
 #error "Arduino 1.6.0 or later (SPI library) is required"
 #endif
 
-class TS_Point {
-public:
-	TS_Point(void) : x(0), y(0), z(0) {}
-	TS_Point(int16_t x, int16_t y, int16_t z) : x(x), y(y), z(z) {}
-	bool operator==(TS_Point p) { return ((p.x == x) && (p.y == y) && (p.z == z)); }
-	bool operator!=(TS_Point p) { return ((p.x != x) || (p.y != y) || (p.z != z)); }
-	int16_t x, y, z;
-};
-
-class XPT2046_Touchscreen {
+class XPT2046_Touchscreen : public Touchscreen 
+{
 public:
 	constexpr XPT2046_Touchscreen(uint8_t cspin, uint8_t tirq=255)
 		: csPin(cspin), tirqPin(tirq) { }
 	bool begin();
-	TS_Point getPoint();
+	Point getPoint() override;
 	bool tirqTouched();
-	bool touched();
+	bool touched() override;
 	void readData(uint16_t *x, uint16_t *y, uint8_t *z);
 	bool bufferEmpty();
 	uint8_t bufferSize() { return 1; }
-	void setRotation(uint8_t n) { rotation = n % 4; }
+	void setRotation(uint8_t n) override { rotation = n % 4; }
 // protected:
 	volatile bool isrWake=true;
 
@@ -60,5 +52,3 @@ private:
 	int16_t xraw=0, yraw=0, zraw=0;
 	uint32_t msraw=0x80000000;
 };
-
-#endif

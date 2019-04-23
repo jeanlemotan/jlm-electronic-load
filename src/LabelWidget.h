@@ -21,7 +21,7 @@ private:
 
 	const GFXfont* m_font = nullptr;
 
-	char m_value[32] = { 0 };
+	std::string m_value;
 	enum DirtyFlags
 	{
 		DirtyFlagGeometry = 1 << 0

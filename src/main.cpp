@@ -128,25 +128,23 @@ void setup()
   s_windowY = 16; //SansSerif_bold_10.yAdvance + 3;
 
   s_settings.load();
-  s_measurement.setSettings(s_settings);
   s_measurement.init();
+  s_measurement.setSettings(s_settings);
 
   initMeasurementState();
   initCalibrationState();
 
-  s_modeWidget.setTextScale(1);
   s_modeWidget.setTextColor(0x0);
   s_modeWidget.setPosition(Widget::Position{3, 0});
   s_modeWidget.setFont(&SansSerif_bold_10);
 
-  s_temperatureWidget.setTextScale(1);
   s_temperatureWidget.setValueColor(0x0);
   s_temperatureWidget.setSuffixColor(0x0);
   s_temperatureWidget.setDecimals(1);
   s_temperatureWidget.setValueFont(&SansSerif_bold_10);
   s_temperatureWidget.setSuffixFont(&SansSerif_bold_10);
 
-  if (s_knob.currentButtonState() == BUT_DOWN)
+	if (s_knob.buttonState() == RotaryEncoder::ButtonState::Down)
   {
     setState(State::Calibration);
   }
@@ -232,7 +230,7 @@ void loop()
 
   if (s_touchscreen.touched())
   {
-    TS_Point point = s_touchscreen.getPoint();
+    Touchscreen::Point point = s_touchscreen.getPoint();
     //printf("\n%d, %d, %d", (int)point.x, (int)point.y, (int)point.z);
     s_canvas.fillCircle(point.x / 4096.f * 320, point.y / 4096.f * 240, point.z / 4096.f * 50 + 50, 0xFFFF);
   }

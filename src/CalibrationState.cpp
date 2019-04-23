@@ -322,7 +322,7 @@ static void process2PointSection()
 	}
 	else if (s_selection == 2) //range
 	{
-		int knobDelta = s_knob.encoderChanged();
+		int knobDelta = s_knob.encoderDelta();
 		if (s_menuSection == MenuSection::Temperature)
 		{
 			s_range = 0;
@@ -332,7 +332,7 @@ static void process2PointSection()
 			s_range += knobDelta;
 			s_range %= Settings::k_rangeCount;
 		}
-		if (s_knob.currentButtonState() == BUT_RELEASED)
+		if (s_knob.buttonState() == RotaryEncoder::ButtonState::Released)
 		{
 			s_measurement.setVoltageRange(s_range);
 			s_measurement.setCurrentRange(s_range);
@@ -343,24 +343,24 @@ static void process2PointSection()
 	}
 	else if (s_selection == 3) //ref1
 	{
-		int knobDelta = s_knob.encoderChangedAcc();
+		int knobDelta = s_knob.encoderDeltaAcc();
 		s_ref1 += knobDelta / 10000.f;
 		s_ref1 = std::max(s_ref1, 0.f);
 		readData();
 		refreshSubMenu();
-		if (s_knob.currentButtonState() == BUT_RELEASED)
+		if (s_knob.buttonState() == RotaryEncoder::ButtonState::Released)
 		{
 			s_selection = 0;
 		}
 	}
 	else if (s_selection == 4) //ref2
 	{
-		int knobDelta = s_knob.encoderChangedAcc();
+		int knobDelta = s_knob.encoderDeltaAcc();
 		s_ref2 += knobDelta / 10000.f;
 		s_ref2 = std::max(s_ref2, 0.f);
 		readData();
 		refreshSubMenu();
-		if (s_knob.currentButtonState() == BUT_RELEASED)
+		if (s_knob.buttonState() == RotaryEncoder::ButtonState::Released)
 		{
 			s_selection = 0;
 		}

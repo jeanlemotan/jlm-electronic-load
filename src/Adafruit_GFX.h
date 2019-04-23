@@ -18,12 +18,13 @@ class Adafruit_GFX : public Print {
 
   // This MUST be defined by the subclass:
   virtual void drawPixel(int16_t x, int16_t y, uint16_t color) = 0;    ///< Virtual drawPixel() function to draw to the screen/framebuffer/etc, must be overridden in subclass. @param x X coordinate.  @param y Y coordinate. @param color 16-bit pixel color. 
-
+  
   // TRANSACTION API / CORE DRAW API
   // These MAY be overridden by the subclass to provide device-specific
   // optimized code.  Otherwise 'generic' versions are used.
   virtual void startWrite(void);
   virtual void writePixel(int16_t x, int16_t y, uint16_t color);
+  virtual void writePixel(int16_t x, int16_t y, uint16_t color, uint8_t alpha);
   virtual void writeVPattern(uint8_t pattern, uint8_t length, int16_t x, int16_t y, uint16_t color1, uint16_t color2, uint8_t size);
   virtual void writeFillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color);
   virtual void writeFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color);
@@ -89,6 +90,8 @@ class Adafruit_GFX : public Print {
       int16_t w, int16_t h),
     drawRGBBitmap(int16_t x, int16_t y, uint16_t *bitmap,
       int16_t w, int16_t h),
+    drawRGBA8888Bitmap(int16_t x, int16_t y, uint32_t *bitmap,
+      int16_t w, int16_t h),
     drawRGBBitmap(int16_t x, int16_t y,
       const uint16_t bitmap[], const uint8_t mask[],
       int16_t w, int16_t h),
@@ -99,6 +102,7 @@ class Adafruit_GFX : public Print {
     setCursor(int16_t x, int16_t y),
     setTextColor(uint16_t c),
     setTextColor(uint16_t c, uint16_t bg),
+    setTextBgEnabled(bool enabled),
     setTextSize(uint8_t s),
     setTextWrap(boolean w),
     cp437(boolean x=true),

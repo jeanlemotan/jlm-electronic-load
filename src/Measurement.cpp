@@ -118,7 +118,6 @@ T clamp(T v, T min, T max)
 }
 
 Measurement::Measurement()
-	: m_impl(new Impl)
 {
 }
 
@@ -128,6 +127,9 @@ Measurement::~Measurement()
 
 void Measurement::init()
 {
+	assert(m_impl == nullptr);
+	m_impl.reset(new Impl);
+
 	{
 	    i2c_config_t conf;
 	    conf.mode = I2C_MODE_MASTER;
@@ -187,6 +189,7 @@ void Measurement::init()
 		config.hpoint = k_fanPrecision - 1;
 		ESP_ERROR_CHECK(ledc_channel_config(&config));
 	}
+	_setFan(0.f);
 
 	_setSPS(SPS::_8);
 

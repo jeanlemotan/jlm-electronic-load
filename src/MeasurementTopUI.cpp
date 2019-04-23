@@ -2,6 +2,7 @@
 #include "MeasurementTopUI.h"
 #include "ValueWidget.h"
 #include "LabelWidget.h"
+#include "DurationEditWidget.h"
 #include "GraphWidget.h"
 #include "Settings.h"
 #include "DeltaBitmap.h"
@@ -35,6 +36,7 @@ static ValueWidget s_powerWidget(s_canvas, 0.f, "W");
 static ValueWidget s_energyWidget(s_canvas, 0.f, "Wh");
 static ValueWidget s_chargeWidget(s_canvas, 0.f, "Ah");
 static LabelWidget s_timerWidget(s_canvas, "00:00:00");
+static DurationEditWidget s_timerWidget2(s_canvas, nullptr);
 
 static LabelWidget s_targetLabelWidget(s_canvas, "Target:");
 static ValueWidget s_targetWidget(s_canvas, 0.f, "Ah");
@@ -142,7 +144,7 @@ void processMeasurementTopUI()
 		Widget::Position p = s_currentWidget.getPosition(Widget::Anchor::TopLeft);
 		s_canvas.fillRoundRect(p.x - border, p.y - border, 1000, s_currentWidget.getHeight() + border*2, border, k_currentColor);
 		s_currentWidget.setTextColor(0x0);
-		setUnitValue(s_targetWidget, s_measurement.getTargetCurrent(), 3, 99.f, 1, 999.999f, "A");
+		setUnitValue(s_targetWidget, s_measurement.getTargetCurrent(), 3, 99.f, 0, 999.999f, "A");
 		trackedColor = k_currentColor;
 		trackedBorderY = p.y;
 	}
@@ -160,7 +162,7 @@ void processMeasurementTopUI()
 		Widget::Position p = s_powerWidget.getPosition(Widget::Anchor::TopLeft);
 		s_canvas.fillRoundRect(p.x - border, p.y - border, 1000, s_powerWidget.getHeight() + border*2, border, k_powerColor);
 		s_powerWidget.setTextColor(0x0);
-		setUnitValue(s_targetWidget, s_measurement.getTargetPower(), 3, 999.999f, 1, 999.999f, "W");
+		setUnitValue(s_targetWidget, s_measurement.getTargetPower(), 3, 999.999f, 0, 999.999f, "W");
 		trackedColor = k_powerColor;
 		trackedBorderY = p.y;
 	}
@@ -178,7 +180,7 @@ void processMeasurementTopUI()
 		Widget::Position p = s_resistanceWidget.getPosition(Widget::Anchor::TopLeft);
 		s_canvas.fillRoundRect(p.x - border, p.y - border, 1000, s_resistanceWidget.getHeight() + border*2, border, k_resistanceColor);
 		s_resistanceWidget.setTextColor(0x0);
-		setUnitValue(s_targetWidget, s_measurement.getTargetResistance(), 3, 999.999f, 1, 999.999f, "{");
+		setUnitValue(s_targetWidget, s_measurement.getTargetResistance(), 3, 999.999f, 0, 999.999f, "{");
 		trackedColor = k_resistanceColor;
 		trackedBorderY = p.y;
 	}
@@ -220,6 +222,7 @@ void processMeasurementTopUI()
 		s_timerWidget.setValue(buf);
 	}
 	s_timerWidget.render();
+	s_timerWidget2.render();
 
 	{
 		int16_t border = 3;
@@ -299,6 +302,12 @@ void processMeasurementTopUI()
 			}
 		}
 	}
+
+	{	
+		s_timerWidget2.setEditing(true);
+		s_timerWidget2.process(s_knob);
+	}
+
 /*
 	static int fanSpeed = 0;
 	fanSpeed += s_knob.encoderChangedAcc();
@@ -373,6 +382,12 @@ void initMeasurementTopUI()
 	s_timerWidget.setTextColor(k_timerColor);
 	s_timerWidget.setFont(&SansSerif_bold_28);
   	s_timerWidget.setPosition(Widget::Position{xSpacing, s_chargeWidget.getPosition(Widget::Anchor::BottomLeft).y}.move(0, ySpacing * 2), Widget::Anchor::TopLeft);
+
+	s_timerWidget2.setUseContentHeight(true);
+	s_timerWidget2.setTextColor(k_timerColor);
+	s_timerWidget2.setValueFont(&SansSerif_bold_28);
+	s_timerWidget2.setSuffixFont(&SansSerif_bold_10);
+  	s_timerWidget2.setPosition(Widget::Position{xSpacing, s_timerWidget.getPosition(Widget::Anchor::BottomLeft).y}.move(0, ySpacing * 2), Widget::Anchor::TopLeft);
 
 	s_targetLabelWidget.setUseContentHeight(true);
 	s_targetLabelWidget.setTextColor(0);

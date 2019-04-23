@@ -52,10 +52,10 @@ void isrPin( void )
 	o->isrWake = true;
 }
 
-TS_Point XPT2046_Touchscreen::getPoint()
+Touchscreen::Point XPT2046_Touchscreen::getPoint()
 {
 	update();
-	return TS_Point(xraw, yraw, zraw);
+	return Touchscreen::Point(xraw, yraw, zraw);
 }
 
 bool XPT2046_Touchscreen::tirqTouched()

@@ -2,7 +2,7 @@
 
 #include <vector>
 #include <string>
-#include "AiEsp32RotaryEncoder.h"
+#include "RotaryEncoder.h"
 
 class DeltaBitmap;
 
@@ -39,7 +39,7 @@ public:
 
     Entry& getSubMenuEntry(size_t idx);
 
-    size_t process(AiEsp32RotaryEncoder& knob);
+    size_t process(RotaryEncoder& knob);
 
     void render(DeltaBitmap& display, size_t maxEntries);
 

@@ -3,10 +3,7 @@
 LabelWidget::LabelWidget(Adafruit_GFX& gfx, const char* value)
 	: WidgetBase(gfx)
 {
-	if (value)
-	{
-		strncpy(m_value, value, sizeof(m_value));
-	}
+	m_value = value ? value : "";
 }
 void LabelWidget::setFont(const GFXfont* font)
 {
@@ -55,28 +52,17 @@ void LabelWidget::render()
 	m_gfx.setTextColor(m_textColor);
 	m_gfx.setTextSize(m_textScale);
 	m_gfx.setCursor(position.x, position.y);
-	m_gfx.print(m_value);
+	m_gfx.print(m_value.c_str());
 	m_gfx.setFont(oldFont);
 }
 void LabelWidget::setValue(const char* value)
 {
-	if (value)
+	value = value ? value : "";
+	if (m_value == value)
 	{
-		if (strcmp(value, m_value) == 0)
-		{
-			return;
-		}
-		strncpy(m_value, value, sizeof(m_value));
+		return;
 	}
-	else
-	{
-		if (m_value[0] == '\0')
-		{
-			return;
-		}
-		m_value[0] = '\0';
-	}
-
+	m_value = value;
 	m_dirtyFlags |= DirtyFlagGeometry;
 }
 
@@ -94,7 +80,7 @@ void LabelWidget::updateGeometry() const
 	int16_t x, y;
 	uint16_t w, h;
 	m_gfx.setTextSize(m_textScale);
-	m_gfx.getTextBounds(m_value, 0, 0, &x, &y, &w, &h);
+	m_gfx.getTextBounds(m_value.c_str(), 0, 0, &x, &y, &w, &h);
 	m_w = w;
 	m_ch = h;
 	m_h = h;

@@ -162,6 +162,10 @@ void Adafruit_GFX::writePixel(int16_t x, int16_t y, uint16_t color){
     drawPixel(x, y, color);
 }
 
+void Adafruit_GFX::writePixel(int16_t x, int16_t y, uint16_t color, uint8_t alpha){
+    drawPixel(x, y, color);
+}
+
 void Adafruit_GFX::writeVPattern(uint8_t pattern, uint8_t length, int16_t x, int16_t y, uint16_t color1, uint16_t color2, uint8_t size)
 {
     if (color1 == color2) {
@@ -978,6 +982,32 @@ void Adafruit_GFX::drawRGBBitmap(int16_t x, int16_t y,
 
 /**************************************************************************/
 /*!
+   @brief   Draw a RAM-resident 16-bit image (RGB 5/6/5) at the specified (x,y) position.  
+   For 16-bit display devices; no color reduction performed.
+    @param    x   Top left corner x coordinate
+    @param    y   Top left corner y coordinate
+    @param    bitmap  byte array with 16-bit color bitmap
+    @param    w   Width of bitmap in pixels
+    @param    h   Height of bitmap in pixels
+*/
+/**************************************************************************/
+void Adafruit_GFX::drawRGBA8888Bitmap(int16_t x, int16_t y, uint32_t *bitmap, int16_t w, int16_t h) {
+    startWrite();
+    for(int16_t j=0; j<h; j++, y++) {
+        for(int16_t i=0; i<w; i++ ) {
+            uint32_t c = bitmap[j * w + i];
+            uint8_t a = c >> 24;
+            uint8_t b = (c >> 19) & 0x1F;
+            uint8_t g = (c >> 10) & 0x3F;
+            uint8_t r = (c >> 3 ) & 0x1F;
+            writePixel(x+i, y, (r << 11) | (g << 5) | b, a);
+        }
+    }
+    endWrite();
+}
+
+/**************************************************************************/
+/*!
    @brief   Draw a PROGMEM-resident 16-bit image (RGB 5/6/5) with a 1-bit mask (set bits = opaque, unset bits = clear) at the specified (x,y) position. BOTH buffers (color and mask) must be PROGMEM-resident. For 16-bit display devices; no color reduction performed.
     @param    x   Top left corner x coordinate
     @param    y   Top left corner y coordinate
@@ -1233,7 +1263,8 @@ size_t Adafruit_GFX::write(uint8_t c) {
                           (uint8_t)pgm_read_byte(&gfxFont->yAdvance);
                     }
                     if (_renderBg) {
-                        fillRect(cursor_x, cursor_y - h - 1, w + 2, h + 2, textbgcolor);
+                        int16_t yo = (int8_t)pgm_read_byte(&glyph->yOffset);
+                        fillRect(cursor_x + xo - 1, cursor_y + yo - 1, w + 2, h + 2, textbgcolor);
                     }
                     drawChar(cursor_x, cursor_y, c, textcolor, textbgcolor, textsize);
                 }
@@ -1309,6 +1340,10 @@ void Adafruit_GFX::setTextColor(uint16_t c) {
 void Adafruit_GFX::setTextColor(uint16_t c, uint16_t b) {
     textcolor   = c;
     textbgcolor = b;
+}
+
+void Adafruit_GFX::setTextBgEnabled(bool enabled) {
+    _renderBg = enabled;
 }
 
 /**************************************************************************/

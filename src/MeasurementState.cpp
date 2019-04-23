@@ -10,7 +10,7 @@
 #include "ValueWidget.h"
 #include "Button.h"
 #include "DeltaBitmap.h"
-
+#include "AiEsp32RotaryEncoder.h"
 
 extern DeltaBitmap s_canvas;
 extern Button s_button;
@@ -159,7 +159,7 @@ void processMeasurementState()
 	}
 	else if (s_menuSection == MenuSection::SetTarget)
 	{
-		int knobDelta = s_knob.encoderChangedAcc();
+		int knobDelta = s_knob.encoderDeltaAcc();
 		if (mode == Measurement::TrackingMode::CC)
 		{
 			s_targetCurrent_mA += knobDelta;
@@ -177,7 +177,7 @@ void processMeasurementState()
 		}
 		refreshSubMenu();
 
-		if (s_knob.currentButtonState() == BUT_RELEASED)
+		if (s_knob.buttonState() == RotaryEncoder::ButtonState::Released)
 		{
 			if (mode == Measurement::TrackingMode::CC)
 			{
@@ -196,23 +196,24 @@ void processMeasurementState()
 	}
 	else if (s_menuSection == MenuSection::SetFan)
 	{
-		int knobDelta = s_knob.encoderChangedAcc();
+		int knobDelta = s_knob.encoderDeltaAcc();
 		s_fan += knobDelta / 100.f;
 		s_fan = std::max(std::min(s_fan, 1.f), 0.f);
 		s_measurement.setFan(s_fan);
 		refreshSubMenu();
-		if (s_knob.currentButtonState() == BUT_RELEASED)
+		if (s_knob.buttonState() == RotaryEncoder::ButtonState::Released)
 		{
 			s_menuSection = MenuSection::Main;
 		}
 	}
 	else if (s_menuSection == MenuSection::Disabled)
 	{
-		if (s_knob.currentButtonState() == BUT_RELEASED)
+/*		if (s_knob.buttonState() == RotaryEncoder::ButtonState::Released)
 		{
 			s_menuSection = MenuSection::Main;
 		}
-		int knobDelta = s_knob.encoderChanged();
+		*/
+		//int knobDelta = s_knob.encoderDelta();
 		//setMeasurementBottomUISection(getMeasurementBottomUISection() + knobDelta);
 	}
 
