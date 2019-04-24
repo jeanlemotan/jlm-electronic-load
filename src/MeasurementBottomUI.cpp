@@ -59,7 +59,7 @@ void processMeasurementBottomUI()
 		//s_graphWidget.addValue(s_energyPlot, loadTimer, energy, true);
 		//s_graphWidget.addValue(s_chargePlot, loadTimer, charge, true);
 	}
-	s_graphWidget.render();
+	//s_graphWidget.render();
 }
 
 void initMeasurementBottomUI()

@@ -5,6 +5,7 @@
 #include "DurationEditWidget.h"
 #include "ValueEditWidget.h"
 #include "GraphWidget.h"
+#include "ImageWidget.h"
 #include "Settings.h"
 #include "DeltaBitmap.h"
 #include "AiEsp32RotaryEncoder.h"
@@ -39,9 +40,24 @@ static ValueWidget s_energyWidget(s_canvas, 0.f, "Wh");
 static ValueWidget s_chargeWidget(s_canvas, 0.f, "Ah");
 static LabelWidget s_timerWidget(s_canvas, "00:00:00");
 //static DurationEditWidget s_timerWidget2(s_canvas, nullptr);
-static ValueEditWidget s_timerWidget2(s_canvas, nullptr);
-
+//static ValueEditWidget s_timerWidget2(s_canvas, nullptr);
 static ValueWidget s_targetWidget(s_canvas, 0.f, "Ah");
+
+static ImageWidget s_graphIconWidget(s_canvas, &k_imgGraph, nullptr, nullptr);
+static ImageWidget s_limitsIconWidget(s_canvas, &k_imgLimits, nullptr, nullptr);
+static ImageWidget s_settingsIconWidget(s_canvas, &k_imgSettings, nullptr, nullptr);
+
+
+static std::vector<Widget*> s_selectableWidgets = 
+{ 
+	&s_targetWidget, 
+	&s_timerWidget,
+	&s_graphIconWidget,
+	&s_limitsIconWidget,
+	&s_settingsIconWidget
+};
+static size_t s_highlightedWidgetIndex = 0;
+static bool s_isWidgetSelected = false;
 
 void printOutput()
 {
@@ -224,7 +240,7 @@ void processMeasurementTopUI()
 		s_timerWidget.setValue(buf);
 	}
 	s_timerWidget.render();
-	s_timerWidget2.render();
+	//s_timerWidget2.render();
 
 	{
 		int16_t border = 3;
@@ -273,12 +289,35 @@ void processMeasurementTopUI()
 			}
 		}
 	}
-
+/*
 	{	
 		s_timerWidget2.setEditing(true);
 		s_timerWidget2.setRange(0, 50);
 		s_timerWidget2.setSuffix("A");
 		s_timerWidget2.process(s_knob);
+	}
+*/
+	{
+		s_highlightedWidgetIndex += s_knob.encoderDelta();
+		s_highlightedWidgetIndex %= s_selectableWidgets.size();
+		Widget* sw = s_selectableWidgets[s_highlightedWidgetIndex];
+
+		int16_t rectBorder = 3;
+		Widget::Position tlp = sw->getPosition(Widget::Anchor::TopLeft);
+		s_canvas.drawRoundRect(tlp.x - rectBorder, tlp.y - rectBorder, 
+							   sw->getWidth() + rectBorder*2, sw->getHeight() + rectBorder*2, 
+							   rectBorder, 0xFFFF);
+		s_canvas.drawRGBA8888Bitmap(tlp.x + sw->getWidth() + 4, 
+								    tlp.y + sw->getHeight()/2 - k_imgKnob.height/2, 
+									(const uint32_t*)k_imgKnob.pixel_data, 
+									k_imgKnob.width, k_imgKnob.height);
+	}
+	{
+
+
+		s_graphIconWidget.render();
+		s_limitsIconWidget.render();
+		s_settingsIconWidget.render();
 	}
 
 /*
@@ -356,12 +395,13 @@ void initMeasurementTopUI()
 	s_timerWidget.setFont(&SansSerif_bold_18);
   	s_timerWidget.setPosition(s_chargeWidget.getPosition(Widget::Anchor::BottomCenter).move(0, ySpacing * 2), Widget::Anchor::TopCenter);
 
+/*
 	s_timerWidget2.setUseContentHeight(true);
 	s_timerWidget2.setTextColor(k_timerColor);
 	s_timerWidget2.setMainFont(&SansSerif_bold_18);
 	s_timerWidget2.setSuffixFont(&SansSerif_bold_10);
   	s_timerWidget2.setPosition(Widget::Position{xSpacing, s_timerWidget.getPosition(Widget::Anchor::BottomLeft).y}.move(0, ySpacing * 2), Widget::Anchor::TopLeft);
-
+*/
 	s_targetWidget.setUseContentHeight(true);
 	s_targetWidget.setRange(0, 999.9999f);
 	s_targetWidget.setTextColor(0);
@@ -374,5 +414,13 @@ void initMeasurementTopUI()
 
 	s_modeWidget.setFont(&SansSerif_bold_13);
 	s_modeWidget.setPosition(Widget::Position{0, s_windowY - 3});
+
+	int16_t y = s_canvas.height() - s_graphIconWidget.getHeight() - s_limitsIconWidget.getHeight() - s_settingsIconWidget.getHeight();
+	s_graphIconWidget.setPosition(Widget::Position(s_canvas.width(), y), Widget::Anchor::TopRight);
+	y += s_graphIconWidget.getHeight();
+	s_limitsIconWidget.setPosition(Widget::Position(s_canvas.width(), y), Widget::Anchor::TopRight);
+	y += s_limitsIconWidget.getHeight();
+	s_settingsIconWidget.setPosition(Widget::Position(s_canvas.width(), y), Widget::Anchor::TopRight);
+
 }
 
