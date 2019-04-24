@@ -10,10 +10,10 @@ public:
 	void setValueFont(const GFXfont* font);
 	void setSuffixFont(const GFXfont* font);
 	void setSuffix(const char* suffix);
-	void setLimits(float minLimit, float maxLimit);
+	void setRange(float min, float max);
 	void setDecimals(uint8_t decimals);
 	void setTextColor(uint16_t color);
-	void setValueColor(uint16_t color);
+	void setMainColor(uint16_t color);
 	void setSuffixColor(uint16_t color);
 	void setUseContentHeight(bool enabled);
 	void setUsePadding(bool enabled);
@@ -55,6 +55,6 @@ private:
 	float m_value = 0;
 	float m_min = -999999999.f;
 	float m_max = 999999999.f;
-	uint16_t m_valueColor = 0xFFFF;
+	uint16_t m_mainColor = 0xFFFF;
 	uint16_t m_suffixColor = 0xFFFF;
 };

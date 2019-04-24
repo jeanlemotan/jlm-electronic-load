@@ -3,6 +3,7 @@
 #include "ValueWidget.h"
 #include "LabelWidget.h"
 #include "DurationEditWidget.h"
+#include "ValueEditWidget.h"
 #include "GraphWidget.h"
 #include "Settings.h"
 #include "DeltaBitmap.h"
@@ -20,6 +21,7 @@
 #include "Fonts/SansSerif_bold_28.h"
 #include "Fonts/SansSerif_plain_32.h"
 #include "Fonts/SansSerif_bold_32.h"
+#include "icons.h"
 
 extern DeltaBitmap s_canvas;
 extern int16_t s_windowY;
@@ -36,7 +38,8 @@ static ValueWidget s_powerWidget(s_canvas, 0.f, "W");
 static ValueWidget s_energyWidget(s_canvas, 0.f, "Wh");
 static ValueWidget s_chargeWidget(s_canvas, 0.f, "Ah");
 static LabelWidget s_timerWidget(s_canvas, "00:00:00");
-static DurationEditWidget s_timerWidget2(s_canvas, nullptr);
+//static DurationEditWidget s_timerWidget2(s_canvas, nullptr);
+static ValueEditWidget s_timerWidget2(s_canvas, nullptr);
 
 static LabelWidget s_targetLabelWidget(s_canvas, "Target:");
 static ValueWidget s_targetWidget(s_canvas, 0.f, "Ah");
@@ -86,7 +89,7 @@ void setUnitValue(ValueWidget& widget, float value, uint8_t decimalsMacro, float
 	{
 		widget.setValue(value / 1000000.f);
 		widget.setDecimals(decimalsMacro);
-		widget.setLimits(0, maxMacro);
+		widget.setRange(0, maxMacro);
 		sprintf(buf, "M%s", unitSI);
 		widget.setSuffix(buf);
 	}
@@ -94,7 +97,7 @@ void setUnitValue(ValueWidget& widget, float value, uint8_t decimalsMacro, float
 	{
 		widget.setValue(value / 1000.f);
 		widget.setDecimals(decimalsMacro);
-		widget.setLimits(0, maxMacro);
+		widget.setRange(0, maxMacro);
 		sprintf(buf, "k%s", unitSI);
 		widget.setSuffix(buf);
 	}
@@ -102,14 +105,14 @@ void setUnitValue(ValueWidget& widget, float value, uint8_t decimalsMacro, float
 	{
 		widget.setValue(value);
 		widget.setDecimals(decimalsMacro);
-		widget.setLimits(0, maxMacro);
+		widget.setRange(0, maxMacro);
 		widget.setSuffix(unitSI);
 	}	
 	else
 	{
 		widget.setValue(value * 1000.f);
 		widget.setDecimals(decimalsMicro);
-		widget.setLimits(0, maxMicro);
+		widget.setRange(0, maxMicro);
 		sprintf(buf, "m%s", unitSI);
 		widget.setSuffix(buf);
 	}	
@@ -236,46 +239,9 @@ void processMeasurementTopUI()
 	s_targetLabelWidget.render();
 	s_targetWidget.render();
 
-	//http://www.rinkydinkelectronics.com/_t_doimageconverter565.php
-	const unsigned short k_4wire16[256] =
-	{
-		0xFFFF, 0xFFFF, 0xEF5D, 0xBDF8, 0xBDF8, 0xEF5D, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFF5D, 0xF5F8, 0xF5F8, 0xFF5D, 0xFFFF, 0xFFFF,   // 0x0010 (16) pixels
-		0xFFFF, 0xCE79, 0x2987, 0x1905, 0x1905, 0x2987, 0xCE79, 0xFFFF, 0xFFFF, 0xF679, 0xD187, 0xD105, 0xD105, 0xD187, 0xF679, 0xFFFF,   // 0x0020 (32) pixels
-		0xF7BE, 0x4209, 0x1905, 0x1905, 0x1905, 0x1905, 0x4209, 0xF7BE, 0xFFBE, 0xDA09, 0xD105, 0xD105, 0xD105, 0xD105, 0xDA09, 0xFFBE,   // 0x0030 (48) pixels
-		0xDEDB, 0x1905, 0x1905, 0x1905, 0x1905, 0x1905, 0x1905, 0xDEDB, 0xF6DB, 0xD105, 0xD105, 0xD105, 0xD105, 0xD105, 0xD105, 0xF6DB,   // 0x0040 (64) pixels
-		0xE71C, 0x1905, 0x1905, 0x1905, 0x1905, 0x1905, 0x1905, 0xE71C, 0xF71C, 0xD105, 0xD105, 0xD105, 0xD105, 0xD105, 0xD105, 0xF71C,   // 0x0050 (80) pixels
-		0xFFFF, 0x73CF, 0x1905, 0x1905, 0x1905, 0x1905, 0x73CF, 0xFFFF, 0xFFFF, 0xE3CF, 0xD105, 0xD105, 0xD105, 0xD105, 0xE3CF, 0xFFFF,   // 0x0060 (96) pixels
-		0xFFFF, 0xF79E, 0x8C51, 0x2126, 0x2126, 0x8C51, 0xF79E, 0xFFFF, 0xFFFF, 0xFF9E, 0xE451, 0xD126, 0xD126, 0xEC51, 0xFF9E, 0xFFFF,   // 0x0070 (112) pixels
-		0xFFFF, 0xFFFF, 0xFFFF, 0xF7BE, 0xF7BE, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFBE, 0xFFBE, 0xFFFF, 0xFFFF, 0xFFFF,   // 0x0080 (128) pixels
-		0xFFFF, 0xFFFF, 0xEF5D, 0xBDF8, 0xBDF8, 0xEF5D, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFF5D, 0xF5F8, 0xF5F8, 0xFF5D, 0xFFFF, 0xFFFF,   // 0x0090 (144) pixels
-		0xFFFF, 0xCE79, 0x2987, 0x1905, 0x1905, 0x2987, 0xCE79, 0xFFFF, 0xFFFF, 0xF679, 0xD187, 0xD105, 0xD105, 0xD187, 0xF679, 0xFFFF,   // 0x00A0 (160) pixels
-		0xF7BE, 0x4209, 0x1905, 0x1905, 0x1905, 0x1905, 0x4209, 0xF7BE, 0xFFBE, 0xDA09, 0xD105, 0xD105, 0xD105, 0xD105, 0xDA09, 0xFFBE,   // 0x00B0 (176) pixels
-		0xDEDB, 0x1905, 0x1905, 0x1905, 0x1905, 0x1905, 0x1905, 0xDEDB, 0xF6DB, 0xD105, 0xD105, 0xD105, 0xD105, 0xD105, 0xD105, 0xEEDB,   // 0x00C0 (192) pixels
-		0xE71C, 0x1905, 0x1905, 0x1905, 0x1905, 0x1905, 0x1905, 0xE71C, 0xF71C, 0xD105, 0xD105, 0xD105, 0xD105, 0xD105, 0xD105, 0xF71C,   // 0x00D0 (208) pixels
-		0xFFFF, 0x73CF, 0x1905, 0x1905, 0x1905, 0x1905, 0x73CF, 0xFFFF, 0xFFFF, 0xE3CF, 0xD105, 0xD105, 0xD105, 0xD105, 0xE3CF, 0xFFFF,   // 0x00E0 (224) pixels
-		0xFFFF, 0xF79E, 0x8C51, 0x2126, 0x2126, 0x8C51, 0xF79E, 0xFFFF, 0xFFFF, 0xF79E, 0xE451, 0xD126, 0xD126, 0xE451, 0xFF9E, 0xFFFF,   // 0x00F0 (240) pixels
-		0xFFFF, 0xFFFF, 0xFFFF, 0xF7BE, 0xF7BE, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFBE, 0xFFBE, 0xFFFF, 0xFFFF, 0xFFFF,   // 0x0100 (256) pixels
-	};
-	const unsigned short k_2wire16[256] =
-	{
-		0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,   // 0x0010 (16) pixels
-		0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,   // 0x0020 (32) pixels
-		0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,   // 0x0030 (48) pixels
-		0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,   // 0x0040 (64) pixels
-		0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,   // 0x0050 (80) pixels
-		0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,   // 0x0060 (96) pixels
-		0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,   // 0x0070 (112) pixels
-		0xFFFF, 0xFFFF, 0xFFFF, 0xF7BE, 0xF7BE, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFBE, 0xFFBE, 0xFFFF, 0xFFFF, 0xFFFF,   // 0x0080 (128) pixels
-		0xFFFF, 0xFFFF, 0xEF5D, 0xBDF8, 0xBDF8, 0xEF5D, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFF5D, 0xF5F8, 0xF5F8, 0xFF5D, 0xFFFF, 0xFFFF,   // 0x0090 (144) pixels
-		0xFFFF, 0xCE79, 0x2987, 0x1905, 0x1905, 0x2987, 0xCE79, 0xFFFF, 0xFFFF, 0xF679, 0xD187, 0xD105, 0xD105, 0xD187, 0xF679, 0xFFFF,   // 0x00A0 (160) pixels
-		0xF7BE, 0x4209, 0x1905, 0x1905, 0x1905, 0x1905, 0x4209, 0xF7BE, 0xFFBE, 0xDA09, 0xD105, 0xD105, 0xD105, 0xD105, 0xDA09, 0xFFBE,   // 0x00B0 (176) pixels
-		0xDEDB, 0x1905, 0x1905, 0x1905, 0x1905, 0x1905, 0x1905, 0xDEDB, 0xF6DB, 0xD105, 0xD105, 0xD105, 0xD105, 0xD105, 0xD105, 0xEEDB,   // 0x00C0 (192) pixels
-		0xE71C, 0x1905, 0x1905, 0x1905, 0x1905, 0x1905, 0x1905, 0xE71C, 0xF71C, 0xD105, 0xD105, 0xD105, 0xD105, 0xD105, 0xD105, 0xF71C,   // 0x00D0 (208) pixels
-		0xFFFF, 0x73CF, 0x1905, 0x1905, 0x1905, 0x1905, 0x73CF, 0xFFFF, 0xFFFF, 0xE3CF, 0xD105, 0xD105, 0xD105, 0xD105, 0xE3CF, 0xFFFF,   // 0x00E0 (224) pixels
-		0xFFFF, 0xF79E, 0x8C51, 0x2126, 0x2126, 0x8C51, 0xF79E, 0xFFFF, 0xFFFF, 0xF79E, 0xE451, 0xD126, 0xD126, 0xE451, 0xFF9E, 0xFFFF,   // 0x00F0 (240) pixels
-		0xFFFF, 0xFFFF, 0xFFFF, 0xF7BE, 0xF7BE, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFBE, 0xFFBE, 0xFFFF, 0xFFFF, 0xFFFF,   // 0x0100 (256) pixels
-	};	
-	s_canvas.drawRGBBitmap(s_temperatureWidget.getPosition(Widget::Anchor::TopLeft).x - 36, 0, s_measurement.is4WireEnabled() ? k_4wire16 : k_2wire16, 16, 16);
+	const Image* img = s_measurement.is4WireEnabled() ? &k_img4Wire : &k_img2Wire;
+	s_canvas.drawRGBA8888Bitmap(s_temperatureWidget.getPosition(Widget::Anchor::TopLeft).x - 36, 0, 
+							(const uint32_t*)img->pixel_data, img->width, img->height);
 
 	static char program[1024] = { 0 };
 	static size_t programSize = 0;
@@ -305,6 +271,8 @@ void processMeasurementTopUI()
 
 	{	
 		s_timerWidget2.setEditing(true);
+		s_timerWidget2.setRange(0, 50);
+		s_timerWidget2.setSuffix("A");
 		s_timerWidget2.process(s_knob);
 	}
 
@@ -328,7 +296,7 @@ void initMeasurementTopUI()
 
 	//1st ROW
 	s_voltageWidget.setUseContentHeight(true);
-	s_voltageWidget.setLimits(0, 99);
+	s_voltageWidget.setRange(0, 99);
 	s_voltageWidget.setTextColor(k_voltageColor);
 	s_voltageWidget.setValueFont(&SansSerif_bold_32);
 	s_voltageWidget.setSuffixFont(&SansSerif_bold_10);
@@ -336,7 +304,7 @@ void initMeasurementTopUI()
   	s_voltageWidget.setPosition(Widget::Position{column1X, s_windowY + 8}, Widget::Anchor::TopCenter);
 
 	s_currentWidget.setUseContentHeight(true);
-	s_currentWidget.setLimits(0, 99);
+	s_currentWidget.setRange(0, 99);
 	s_currentWidget.setTextColor(k_currentColor);
 	s_currentWidget.setValueFont(&SansSerif_bold_32);
 	s_currentWidget.setSuffixFont(&SansSerif_bold_10);
@@ -345,7 +313,7 @@ void initMeasurementTopUI()
 
 	//2nd ROW
 	s_energyWidget.setUseContentHeight(true);
-	s_energyWidget.setLimits(0, 999.9999f);
+	s_energyWidget.setRange(0, 999.9999f);
 	s_energyWidget.setTextColor(k_energyColor);
 	s_energyWidget.setValueFont(&SansSerif_bold_18);
 	s_energyWidget.setSuffixFont(&SansSerif_bold_10);
@@ -353,7 +321,7 @@ void initMeasurementTopUI()
   	s_energyWidget.setPosition(s_voltageWidget.getPosition(Widget::Anchor::BottomCenter).move(0, ySpacing), Widget::Anchor::TopCenter);
 
 	s_powerWidget.setUseContentHeight(true);
-	s_powerWidget.setLimits(0, 999.9999f);
+	s_powerWidget.setRange(0, 999.9999f);
 	s_powerWidget.setTextColor(k_powerColor);
 	s_powerWidget.setValueFont(&SansSerif_bold_18);
 	s_powerWidget.setSuffixFont(&SansSerif_bold_10);
@@ -362,7 +330,7 @@ void initMeasurementTopUI()
 
 	//3rd ROW
 	s_chargeWidget.setUseContentHeight(true);
-	s_chargeWidget.setLimits(0, 999.9999f);
+	s_chargeWidget.setRange(0, 999.9999f);
 	s_chargeWidget.setTextColor(k_chargeColor);
 	s_chargeWidget.setValueFont(&SansSerif_bold_18);
 	s_chargeWidget.setSuffixFont(&SansSerif_bold_10);
@@ -370,7 +338,7 @@ void initMeasurementTopUI()
   	s_chargeWidget.setPosition(s_energyWidget.getPosition(Widget::Anchor::BottomCenter).move(0, ySpacing), Widget::Anchor::TopCenter);
 
 	s_resistanceWidget.setUseContentHeight(true);
-	s_resistanceWidget.setLimits(0, 999.9999f);
+	s_resistanceWidget.setRange(0, 999.9999f);
 	s_resistanceWidget.setTextColor(k_resistanceColor);
 	s_resistanceWidget.setValueFont(&SansSerif_bold_18);
 	s_resistanceWidget.setSuffixFont(&SansSerif_bold_10);
@@ -385,7 +353,7 @@ void initMeasurementTopUI()
 
 	s_timerWidget2.setUseContentHeight(true);
 	s_timerWidget2.setTextColor(k_timerColor);
-	s_timerWidget2.setValueFont(&SansSerif_bold_28);
+	s_timerWidget2.setMainFont(&SansSerif_bold_28);
 	s_timerWidget2.setSuffixFont(&SansSerif_bold_10);
   	s_timerWidget2.setPosition(Widget::Position{xSpacing, s_timerWidget.getPosition(Widget::Anchor::BottomLeft).y}.move(0, ySpacing * 2), Widget::Anchor::TopLeft);
 
@@ -395,7 +363,7 @@ void initMeasurementTopUI()
   	s_targetLabelWidget.setPosition(Widget::Position{s_canvas.width() - xSpacing, s_chargeWidget.getPosition(Widget::Anchor::BottomLeft).y}.move(0, ySpacing * 2), Widget::Anchor::TopRight);
 
 	s_targetWidget.setUseContentHeight(true);
-	s_targetWidget.setLimits(0, 999.9999f);
+	s_targetWidget.setRange(0, 999.9999f);
 	s_targetWidget.setTextColor(0);
 	s_targetWidget.setValueFont(&SansSerif_bold_18);
 	s_targetWidget.setSuffixFont(&SansSerif_bold_10);

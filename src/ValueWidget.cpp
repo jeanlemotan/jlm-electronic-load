@@ -36,22 +36,22 @@ void ValueWidget::setDecimals(uint8_t decimals)
 	}	
 }
 
-void ValueWidget::setLimits(float minLimit, float maxLimit)
+void ValueWidget::setRange(float min, float max)
 {
-	m_min = minLimit;
-	m_max = maxLimit;
+	m_min = min;
+	m_max = max;
 	setValue(m_value);
 }
 void ValueWidget::setTextColor(uint16_t color)
 {
-	setValueColor(color);
+	setMainColor(color);
 	setSuffixColor(color);
 }
-void ValueWidget::setValueColor(uint16_t color)
+void ValueWidget::setMainColor(uint16_t color)
 {
-	if (m_valueColor != color)
+	if (m_mainColor != color)
 	{
-		m_valueColor = color;
+		m_mainColor = color;
 	}
 }
 void ValueWidget::setSuffixColor(uint16_t color)
@@ -98,7 +98,7 @@ void ValueWidget::render()
 
 	const GFXfont* oldFont = m_gfx.getFont();
 
-	m_gfx.setTextColor(m_valueColor);
+	m_gfx.setTextColor(m_mainColor);
 	m_gfx.setFont(m_valueFont);
 
 	char str[16];

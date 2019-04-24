@@ -2,5 +2,8 @@
     "terminal.integrated.env.linux": {
         "PATH": "/home/jean/.platformio/penv/bin:/home/jean/.platformio/penv:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin",
         "PLATFORMIO_CALLER": "vscode"
+    },
+    "files.associations": {
+        "chrono": "cpp"
     }
 }

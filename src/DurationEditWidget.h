@@ -13,7 +13,7 @@ public:
     void setDuration(Clock::duration duration);
     Clock::duration getDuration() const;
 
-    void process(RotaryEncoder& knob) override;
+    Result process(RotaryEncoder& knob) override;
     void render();
 
 private:
@@ -21,5 +21,4 @@ private:
     Clock::duration m_min;
     Clock::duration m_max;
     Clock::duration m_duration;
-    bool m_isEditingDigit = false;
 };
