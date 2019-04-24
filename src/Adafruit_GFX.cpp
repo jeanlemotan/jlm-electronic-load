@@ -991,7 +991,7 @@ void Adafruit_GFX::drawRGBBitmap(int16_t x, int16_t y,
     @param    h   Height of bitmap in pixels
 */
 /**************************************************************************/
-void Adafruit_GFX::drawRGBA8888Bitmap(int16_t x, int16_t y, uint32_t *bitmap, int16_t w, int16_t h) {
+void Adafruit_GFX::drawRGBA8888Bitmap(int16_t x, int16_t y, const uint32_t *bitmap, int16_t w, int16_t h) {
     startWrite();
     for(int16_t j=0; j<h; j++, y++) {
         for(int16_t i=0; i<w; i++ ) {
