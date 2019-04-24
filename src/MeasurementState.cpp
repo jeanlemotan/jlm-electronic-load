@@ -208,11 +208,11 @@ void processMeasurementState()
 	}
 	else if (s_menuSection == MenuSection::Disabled)
 	{
-/*		if (s_knob.buttonState() == RotaryEncoder::ButtonState::Released)
+		if (s_knob.buttonState() == RotaryEncoder::ButtonState::Released)
 		{
 			s_menuSection = MenuSection::Main;
 		}
-		*/
+		
 		//int knobDelta = s_knob.encoderDelta();
 		//setMeasurementBottomUISection(getMeasurementBottomUISection() + knobDelta);
 	}

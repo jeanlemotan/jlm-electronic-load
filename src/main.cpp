@@ -114,7 +114,7 @@ void setup()
 
   s_display.begin(64000000);
   s_display.setRotation(1);
-  s_display.fillRect(0, 0, s_display.width(), s_display.height(), 0xFFFF);
+//  s_display.fillRect(0, 0, s_display.width(), s_display.height(), 0xFFFF);
   s_display.fillRect(0, 0, s_display.width(), s_display.height(), 0x0);
 
   s_touchscreen.begin();

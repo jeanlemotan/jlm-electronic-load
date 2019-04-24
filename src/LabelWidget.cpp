@@ -46,6 +46,7 @@ int16_t LabelWidget::getHeight() const
 }
 void LabelWidget::render()
 {
+	updateGeometry();
 	Position position = computeBottomLeftPosition();
 	const GFXfont* oldFont = m_gfx.getFont();
 	m_gfx.setFont(m_font);

@@ -16,5 +16,6 @@ extern Image k_imgCardOk;
 extern Image k_imgCardError;
 extern Image k_img2Wire;
 extern Image k_img4Wire;
+extern Image k_imgTarget;
 
 

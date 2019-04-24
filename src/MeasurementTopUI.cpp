@@ -41,7 +41,6 @@ static LabelWidget s_timerWidget(s_canvas, "00:00:00");
 //static DurationEditWidget s_timerWidget2(s_canvas, nullptr);
 static ValueEditWidget s_timerWidget2(s_canvas, nullptr);
 
-static LabelWidget s_targetLabelWidget(s_canvas, "Target:");
 static ValueWidget s_targetWidget(s_canvas, 0.f, "Ah");
 
 void printOutput()
@@ -229,14 +228,20 @@ void processMeasurementTopUI()
 
 	{
 		int16_t border = 3;
-		Widget::Position lp = s_targetLabelWidget.getPosition(Widget::Anchor::TopLeft);
-		Widget::Position wp = s_targetWidget.getPosition(Widget::Anchor::BottomLeft);
-		int16_t x = std::min(lp.x, wp.x);
-		s_canvas.fillRoundRect(x - border, lp.y - border, 1000, wp.y - lp.y + border*2, border, trackedColor);
-		s_canvas.fillRect(s_canvas.width() - 10, trackedBorderY, 1000, wp.y - trackedBorderY, trackedColor);
+		Widget::Position tlp = s_targetWidget.getPosition(Widget::Anchor::TopLeft).move(-k_imgTarget.width - border, 0);
+		Widget::Position blp = s_targetWidget.getPosition(Widget::Anchor::BottomLeft);
+		s_canvas.fillRoundRect(tlp.x - border, tlp.y - border, 1000, blp.y - tlp.y + border*2, border, trackedColor);
+		s_canvas.fillRect(s_canvas.width() - 10, trackedBorderY, 1000, blp.y - trackedBorderY, trackedColor);
+
+		s_canvas.drawRGBA8888Bitmap(tlp.x, (tlp.y + blp.y)/2 - k_imgTarget.height/2, 
+								(const uint32_t*)k_imgTarget.pixel_data, k_imgTarget.width, k_imgTarget.height);
+
+		//recenter the target widget with the icon
+		Widget::Position parentPosition = s_resistanceWidget.getPosition(Widget::Anchor::BottomCenter);
+		parentPosition.y = s_targetWidget.getPosition(Widget::Anchor::TopCenter).y; //no change in the y
+		parentPosition.x += k_imgTarget.width / 2 + border;
+  		s_targetWidget.setPosition(parentPosition, Widget::Anchor::TopCenter);
 	}
-  	s_targetLabelWidget.setPosition(s_targetLabelWidget.getPosition().alignX(s_targetWidget.getPosition()));
-	s_targetLabelWidget.render();
 	s_targetWidget.render();
 
 	const Image* img = s_measurement.is4WireEnabled() ? &k_img4Wire : &k_img2Wire;
@@ -348,19 +353,14 @@ void initMeasurementTopUI()
   	//4th ROW
 	s_timerWidget.setUseContentHeight(true);
 	s_timerWidget.setTextColor(k_timerColor);
-	s_timerWidget.setFont(&SansSerif_bold_28);
-  	s_timerWidget.setPosition(Widget::Position{xSpacing, s_chargeWidget.getPosition(Widget::Anchor::BottomLeft).y}.move(0, ySpacing * 2), Widget::Anchor::TopLeft);
+	s_timerWidget.setFont(&SansSerif_bold_18);
+  	s_timerWidget.setPosition(s_chargeWidget.getPosition(Widget::Anchor::BottomCenter).move(0, ySpacing * 2), Widget::Anchor::TopCenter);
 
 	s_timerWidget2.setUseContentHeight(true);
 	s_timerWidget2.setTextColor(k_timerColor);
-	s_timerWidget2.setMainFont(&SansSerif_bold_28);
+	s_timerWidget2.setMainFont(&SansSerif_bold_18);
 	s_timerWidget2.setSuffixFont(&SansSerif_bold_10);
   	s_timerWidget2.setPosition(Widget::Position{xSpacing, s_timerWidget.getPosition(Widget::Anchor::BottomLeft).y}.move(0, ySpacing * 2), Widget::Anchor::TopLeft);
-
-	s_targetLabelWidget.setUseContentHeight(true);
-	s_targetLabelWidget.setTextColor(0);
-	s_targetLabelWidget.setFont(&SansSerif_bold_10);
-  	s_targetLabelWidget.setPosition(Widget::Position{s_canvas.width() - xSpacing, s_chargeWidget.getPosition(Widget::Anchor::BottomLeft).y}.move(0, ySpacing * 2), Widget::Anchor::TopRight);
 
 	s_targetWidget.setUseContentHeight(true);
 	s_targetWidget.setRange(0, 999.9999f);
@@ -368,7 +368,8 @@ void initMeasurementTopUI()
 	s_targetWidget.setValueFont(&SansSerif_bold_18);
 	s_targetWidget.setSuffixFont(&SansSerif_bold_10);
   	s_targetWidget.setDecimals(3);
-  	s_targetWidget.setPosition(Widget::Position{s_canvas.width() - xSpacing, s_targetLabelWidget.getPosition(Widget::Anchor::BottomLeft).y}.move(0, ySpacing), Widget::Anchor::TopRight);
+  	s_targetWidget.setPosition(s_resistanceWidget.getPosition(Widget::Anchor::BottomCenter).move(0, ySpacing * 2), Widget::Anchor::TopCenter);
+  	//s_targetWidget.setPosition(Widget::Position{s_canvas.width() - xSpacing, s_chargeWidget.getPosition(Widget::Anchor::BottomLeft).y}.move(0, ySpacing), Widget::Anchor::TopRight);
 
 
 	s_modeWidget.setFont(&SansSerif_bold_13);
