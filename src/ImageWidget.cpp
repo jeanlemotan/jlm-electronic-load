@@ -20,24 +20,6 @@ ImageWidget::ImageWidget(Adafruit_GFX& gfx, const Image* image, const Image* hig
     }
 }
 
-void ImageWidget::setSelected(bool selected)
-{
-    m_isSelected = selected;
-}
-bool ImageWidget::isSelected() const
-{
-    return m_isSelected;
-}
-
-void ImageWidget::setHighlighted(bool highlighted)
-{
-    m_isHighlighted = highlighted;
-}
-bool ImageWidget::isHighlighted() const
-{
-    return m_isHighlighted;
-}
-
 int16_t ImageWidget::getWidth() const
 {
     return m_w;

@@ -2,13 +2,11 @@
 #include "DeltaBitmap.h"
 #include <algorithm>
 
-constexpr size_t MENU_WIDTH = 200;
-
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 Menu::Menu()
 {
-
+    m_crtX = -1000.f;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -30,7 +28,7 @@ void Menu::pushSubMenu(std::vector<Entry> entries, size_t selected, int16_t y)
     subMenu.crtEntry = std::min(selected, entries.size() - 1);
     subMenu.entries = std::move(entries);
     subMenu.topEntry = 0;
-    subMenu.x = MENU_WIDTH * m_subMenus.size();
+    subMenu.page = m_subMenus.size();
     subMenu.y = y;
 
     ESP_LOGI("Menu", "Pushing submenu %d", m_subMenus.size());
@@ -38,7 +36,7 @@ void Menu::pushSubMenu(std::vector<Entry> entries, size_t selected, int16_t y)
     m_subMenus.push_back(subMenu);
     m_crtSubMenuIdx = m_subMenus.size() - 1;
 
-    m_targetX = static_cast<float>(m_crtSubMenuIdx * MENU_WIDTH);
+    m_targetScreenX = static_cast<float>(m_crtSubMenuIdx);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -58,7 +56,11 @@ void Menu::popSubMenu()
 
     if (m_crtSubMenuIdx < m_subMenus.size())
     {
-        m_targetX = static_cast<float>(m_crtSubMenuIdx * MENU_WIDTH);
+        m_targetScreenX = static_cast<float>(m_crtSubMenuIdx);
+    }
+    else
+    {
+        m_targetScreenX = -1.f;
     }
 }
 
@@ -123,11 +125,11 @@ void Menu::render(DeltaBitmap& display, size_t maxEntries)
         return;
     }
 
-    m_crtX = (m_crtX * 7.f + m_targetX * 3.f) / 10.f;
+    m_crtX = (m_crtX * 7.f + m_targetScreenX * (display.width() + 10) * 3.f) / 10.f;
 
     for (SubMenu& subMenu: m_subMenus)
     {
-        int16_t x = subMenu.x - static_cast<int16_t>(m_crtX + 0.5f);
+        int16_t x = subMenu.page * display.width() - static_cast<int16_t>(m_crtX + 0.5f);
         int16_t y = subMenu.y;
 
         if (x < display.width() && x > -display.width() &&
@@ -150,7 +152,7 @@ void Menu::render(DeltaBitmap& display, size_t maxEntries)
 void Menu::render(DeltaBitmap& display, SubMenu& subMenu, size_t maxEntries)
 {
     int16_t parentX = static_cast<int16_t>(m_crtX + 0.5f);
-    int16_t x = subMenu.x - parentX;
+    int16_t x = subMenu.page * display.width() - parentX;
     int16_t y = subMenu.y;
 
     const int16_t borderH = 2;

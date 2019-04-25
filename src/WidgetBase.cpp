@@ -69,3 +69,21 @@ Widget::Position WidgetBase::getPosition(Anchor anchor) const
 	}	
 	return position;
 }
+
+void WidgetBase::setSelected(bool selected)
+{
+    m_isSelected = selected;
+}
+bool WidgetBase::isSelected() const
+{
+    return m_isSelected;
+}
+
+void WidgetBase::setHighlighted(bool highlighted)
+{
+    m_isHighlighted = highlighted;
+}
+bool WidgetBase::isHighlighted() const
+{
+    return m_isHighlighted;
+}

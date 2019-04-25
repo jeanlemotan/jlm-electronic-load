@@ -32,4 +32,8 @@ public:
 	virtual int16_t getHeight() const = 0;
 	virtual void setPosition(const Position& position, Anchor anchor = Anchor::TopLeft) = 0;
 	virtual Position getPosition(Anchor anchor = Anchor::TopLeft) const = 0;
+	virtual void setSelected(bool selected) = 0;
+	virtual bool isSelected() const = 0;
+	virtual void setHighlighted(bool highlighted) = 0;
+	virtual bool isHighlighted() const = 0;
 };

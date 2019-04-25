@@ -133,6 +133,7 @@ void DeltaBitmap::writePixel(int16_t x, int16_t y, uint16_t color, uint8_t alpha
 	cell = cell ? cell : acquireCell();
 
 	uint16_t& dst = cell->data[coy * _cellW + cox];
+	alpha = ((uint32_t)alpha * (uint32_t)_opacity) >> 8;
 	if (alpha == 0xFF)
 	{
 		dst = color;

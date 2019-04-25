@@ -50,7 +50,7 @@ private:
         std::vector<Entry> entries;
         size_t crtEntry = 0;
         size_t topEntry = 0;
-        int16_t x = 0;
+        int16_t page = 0;
         int16_t y = 0;
         bool popped = false;
         bool finished = false;
@@ -60,7 +60,7 @@ private:
     std::vector<SubMenu> m_subMenus;
     size_t m_crtSubMenuIdx = 0;
 
-    float m_targetX = 0;
+    float m_targetScreenX = 0;
     float m_crtX = 0;
 
     void render(DeltaBitmap& display, SubMenu& data, size_t maxEntries);
