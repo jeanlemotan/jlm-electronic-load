@@ -1,6 +1,6 @@
 #include "WidgetBase.h"
 
-WidgetBase::WidgetBase(Adafruit_GFX& gfx)
+WidgetBase::WidgetBase(JLMBackBuffer& gfx)
 	: m_gfx(gfx)
 {
 }

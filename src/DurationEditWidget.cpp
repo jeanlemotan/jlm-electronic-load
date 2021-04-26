@@ -1,7 +1,7 @@
 #include "DurationEditWidget.h"
 #include "icons.h"
 
-DurationEditWidget::DurationEditWidget(Adafruit_GFX& gfx, const char* suffix)
+DurationEditWidget::DurationEditWidget(JLMBackBuffer& gfx, const char* suffix)
     : EditWidget(gfx, nullptr, suffix)
     , m_min(Clock::duration::zero())
     , m_max(std::chrono::hours(99))

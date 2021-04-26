@@ -7,7 +7,7 @@
 class ImageWidget : public WidgetBase
 {
 public:
-	ImageWidget(Adafruit_GFX& gfx, const Image* image, const Image* highlighted, const Image* selected);
+	ImageWidget(JLMBackBuffer& gfx, const Image* image, const Image* highlighted, const Image* selected);
 
 	int16_t getWidth() const override;
 	int16_t getHeight() const override;

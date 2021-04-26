@@ -1,6 +1,6 @@
 #include "ValueWidget.h"
 
-ValueWidget::ValueWidget(Adafruit_GFX& gfx, float value, const char* suffix)
+ValueWidget::ValueWidget(JLMBackBuffer& gfx, float value, const char* suffix)
 	: WidgetBase(gfx)
 	, m_value(value)
 {

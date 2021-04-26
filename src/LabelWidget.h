@@ -6,7 +6,7 @@
 class LabelWidget : public WidgetBase
 {
 public:
-	LabelWidget(Adafruit_GFX& gfx, const char* value);
+	LabelWidget(JLMBackBuffer& gfx, const char* value);
 	void setFont(const GFXfont* font);
 	void setTextColor(uint16_t color);
 	void setTextScale(uint8_t scale);

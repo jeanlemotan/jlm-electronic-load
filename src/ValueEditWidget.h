@@ -6,13 +6,15 @@
 class ValueEditWidget : public EditWidget
 {
 public:
-	ValueEditWidget(Adafruit_GFX& gfx, const char* suffix);
+	ValueEditWidget(JLMBackBuffer& gfx, const char* suffix);
 
     void setRange(float min, float max);
 	void setDecimals(uint8_t decimals);
 
     void setValue(float duration);
     float getValue() const;
+
+    int16_t getWidth() const;
 
     Result process(RotaryEncoder& knob) override;
     void render();

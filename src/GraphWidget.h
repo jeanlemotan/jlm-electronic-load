@@ -7,8 +7,10 @@
 class GraphWidget : public WidgetBase
 {
 public:
-	GraphWidget(Adafruit_GFX& gfx, size_t capacity);
+	GraphWidget(JLMBackBuffer& gfx, size_t capacity);
 	uint8_t addPlot(const char* name, uint16_t color, float minRange);
+	void setPlotVisible(uint8_t plotIndex, bool visible);
+	bool isPlotVisible(uint8_t plotIndex) const;
 
 	void addValue(uint8_t plotIndex, Clock::duration timestamp, float value, bool continued);
 
@@ -36,6 +38,7 @@ private:
 	{
 		std::string name;
 		uint16_t color = 0xFFFF;
+		bool isVisible = true;
 		float minRange = 0.00000001f;
 		Clock::duration timePerUnit = std::chrono::milliseconds(100);
 		Clock::duration firstTimestamp = Clock::duration::zero();

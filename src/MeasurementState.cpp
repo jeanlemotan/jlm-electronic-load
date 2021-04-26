@@ -10,7 +10,7 @@
 #include "DurationEditWidget.h"
 #include "ValueEditWidget.h"
 #include "Button.h"
-#include "DeltaBitmap.h"
+#include "JLMBackBuffer.h"
 #include "AiEsp32RotaryEncoder.h"
 #include "Fonts/SansSerif_plain_10.h"
 #include "Fonts/SansSerif_bold_10.h"
@@ -24,7 +24,7 @@
 #include "Fonts/SansSerif_bold_32.h"
 #include "icons.h"
 
-extern DeltaBitmap s_canvas;
+extern JLMBackBuffer s_canvas;
 extern Button s_button;
 extern int16_t s_windowY;
 extern AiEsp32RotaryEncoder s_knob;
@@ -49,7 +49,7 @@ static ValueWidget s_energyWidget(s_canvas, 0.f, "Wh");
 static ValueWidget s_chargeWidget(s_canvas, 0.f, "Ah");
 static LabelWidget s_timerWidget(s_canvas, "00:00:00");
 static DurationEditWidget s_durationLimitWidget(s_canvas, nullptr);
-static ValueEditWidget s_valueLimitWidget(s_canvas, nullptr);
+static ValueEditWidget s_valueEditWidget(s_canvas, nullptr);
 static ValueWidget s_targetWidget(s_canvas, 0.f, "Ah");
 static ImageWidget s_targetIconWidget(s_canvas, &k_imgTarget, &k_imgTargetH, nullptr);
 
@@ -115,6 +115,23 @@ enum class SettingsMenuState
 };
 static SettingsMenuState s_settingsMenuState = SettingsMenuState::Main;
 
+enum class GraphMenuEntry
+{
+	Back = 0,
+	Reset,
+	ShowVoltage,
+	ShowCurrent,
+	ShowPower,
+	ShowResistance,
+	Range
+};
+enum class GraphMenuState
+{
+	Main,
+	RangeSelection
+};
+static GraphMenuState s_graphMenuState = GraphMenuState::Main;
+
 
 //static size_t s_menuSelection = 0;
 
@@ -122,6 +139,12 @@ static int32_t s_targetCurrent_mA = 0;
 static int32_t s_targetPower_mW = 0;
 static int32_t s_targetResistance_mO = 0;
 static float s_fan = 0;
+
+static uint16_t k_modeColors[] = {0xFFFF, k_currentColor, k_powerColor, k_resistanceColor};
+static const char* k_modeNames[] = {"None", "CC", "CP", "CR"};
+static const char* k_modeUnits[] = {"-", "A", "W", "}"};
+static int32_t* k_modeTargetValues[] = {&s_targetCurrent_mA, &s_targetCurrent_mA, &s_targetPower_mW, &s_targetResistance_mO};
+
 
 void setUnitValue(ValueWidget& widget, float value, uint8_t decimalsMacro, float maxMacro, uint8_t decimalsMicro, float maxMicro, const char* unitSI)
 {
@@ -159,59 +182,6 @@ void setUnitValue(ValueWidget& widget, float value, uint8_t decimalsMacro, float
 	}	
 }
 
-static void refreshSubMenu()
-{
-	char buf[64];
-
-	uint16_t modeColors[] = {0xFFFF, k_currentColor, k_powerColor, k_resistanceColor};
-	const char* modeNames[] = {"None", "CC", "CP", "CR"};
-	const char* modeUnits[] = {"-", "A", "W", "}"};
-	int32_t* modeTargetValues[] = {&s_targetCurrent_mA, &s_targetCurrent_mA, &s_targetPower_mW, &s_targetResistance_mO};
-
-	Measurement::TrackingMode mode = s_measurement.getTrackingMode();
-
-	// if (s_settingsMenuState == SettingsMenuState::Main)
-	// {
-	// 	sprintf(buf, "#f7CF7Target: #f%04X%.3f %s", 
-	// 		modeColors[(int)mode],
-	// 		*modeTargetValues[(int)mode] / 1000.f,
-	// 		modeUnits[(int)mode]);
-	// 	s_menu.getSubMenuEntry((size_t)SettingsMenuEntry::Target).text = buf;
-	// }
-	// else if (s_settingsMenuState == SettingsMenuState::SetTarget)
-	// {
-	// 	sprintf(buf, "#fBBCETarget: #f%04X%.3f %s", 
-	// 		modeColors[(int)mode],
-	// 		*modeTargetValues[(int)mode] / 1000.f,
-	// 		modeUnits[(int)mode]);
-	// 	s_menu.getSubMenuEntry((size_t)SettingsMenuEntry::Target).text = buf;
-	// }
-	// if (s_settingsMenuState == SettingsMenuState::Main)
-	// {
-	// 	sprintf(buf, "#f7CF7Fan: %d%%", (int)(s_fan * 100.f));
-	// 	s_menu.getSubMenuEntry((size_t)SettingsMenuEntry::Fan).text = buf;
-	// }
-	// else if (s_settingsMenuState == SettingsMenuState::SetFan)
-	// {
-	// 	sprintf(buf, "#fBBCEFan: %d%%", (int)(s_fan * 100.f));
-	// 	s_menu.getSubMenuEntry((size_t)SettingsMenuEntry::Fan).text = buf;
-	// }
-	sprintf(buf, "#f7CF74 Wire: %s", s_measurement.is4WireEnabled() ? "On" : "Off");
-	s_menu.getSubMenuEntry((size_t)SettingsMenuEntry::_4Wire) = buf;
-
-	if (mode == Measurement::TrackingMode::None)
-	{
-		sprintf(buf, "#f7CF7Mode: None");
-	}
-	else
-	{
-		sprintf(buf, "#f7CF7Mode: #f%04X%s", 
-					modeColors[(int)mode],
-					modeNames[(int)mode]);
-	}
-	s_menu.getSubMenuEntry((size_t)SettingsMenuEntry::Mode) = buf;
-}
-
 void processUIState_Main()
 {
 	Widget* sw = s_selectableWidgets[s_highlightedWidgetIndex];
@@ -236,30 +206,112 @@ void processUIState_Main()
 							"#f7CF7Settings",
 							}, 0, 120);
 		}
+		else if (sw == &s_graphIconWidget)
+		{
+			s_uiState = UIState::GraphMenu;
+			s_menu.pushSubMenu({
+							"#f7CF7Back",
+							"#f7CF7Reset",
+							"#f7CF7Show Voltage: Yes",
+							"#f7CF7Show Current: Yes",
+							"#f7CF7Show Power: Yes",
+							"#f7CF7Show Resistance: Yes",
+							"#f7CF7Time Range: All",
+							}, 0, 120);
+		}
+		else if (sw == &s_targetIconWidget)
+		{
+			s_uiState = UIState::SetTarget;
+
+			Measurement::TrackingMode mode = s_measurement.getTrackingMode();
+			s_valueEditWidget.setPosition(Widget::Position{s_canvas.width() - 4, s_targetWidget.getPosition(Widget::Anchor::TopCenter).y}, Widget::Anchor::TopRight);
+			s_valueEditWidget.setSuffixColor(k_modeColors[(size_t)mode]);
+			s_valueEditWidget.setSuffix(k_modeUnits[(size_t)mode]);
+			s_valueEditWidget.setEditing(true);
+			if (mode == Measurement::TrackingMode::CC)
+			{
+				s_valueEditWidget.setRange(0, Measurement::k_maxCurrent);
+				s_valueEditWidget.setValue(s_measurement.getTargetCurrent());
+			}
+			else if (mode == Measurement::TrackingMode::CP)
+			{
+				s_valueEditWidget.setRange(0, Measurement::k_maxPower);
+				s_valueEditWidget.setValue(s_measurement.getTargetPower());
+			}
+			else if (mode == Measurement::TrackingMode::CR)
+			{
+				s_valueEditWidget.setRange(Measurement::k_minResistance, Measurement::k_maxResistance);
+				s_valueEditWidget.setValue(s_measurement.getTargetResistance());
+			}
+		}
 	}
 }
 
+void processUIState_SetTarget()
+{
+	Measurement::TrackingMode mode = s_measurement.getTrackingMode();
+
+	EditWidget::Result result = s_valueEditWidget.process(s_knob);
+	if (result == EditWidget::Result::Ok)
+	{
+		if (mode == Measurement::TrackingMode::CC)
+		{
+			s_measurement.setTargetCurrent(s_valueEditWidget.getValue());
+		}
+		else if (mode == Measurement::TrackingMode::CP)
+		{
+			s_measurement.setTargetPower(s_valueEditWidget.getValue());
+		}
+		else if (mode == Measurement::TrackingMode::CR)
+		{
+			s_measurement.setTargetResistance(s_valueEditWidget.getValue());
+		}
+		s_uiState = UIState::Main;
+	}
+	else if (result == EditWidget::Result::Cancel)
+	{
+		s_uiState = UIState::Main;
+	}
+	Widget::Position tl = s_valueEditWidget.getPosition(Widget::Anchor::TopLeft).move(-4, -4);
+	Widget::Position br = s_valueEditWidget.getPosition(Widget::Anchor::BottomRight).move(4, 4);
+	s_canvas.fillRoundRect(tl.x, tl.y, br.x - tl.x, br.y - tl.y, 3, k_modeColors[(size_t)mode]);
+	s_valueEditWidget.render();
+}
+
+static void refreshSettingsSubMenu()
+{
+	char buf[64];
+
+	Measurement::TrackingMode mode = s_measurement.getTrackingMode();
+
+	sprintf(buf, "#f7CF74 Wire: %s", s_measurement.is4WireEnabled() ? "On" : "Off");
+	s_menu.getSubMenuEntry((size_t)SettingsMenuEntry::_4Wire) = buf;
+
+	if (mode == Measurement::TrackingMode::None)
+	{
+		sprintf(buf, "#f7CF7Mode: None");
+	}
+	else
+	{
+		sprintf(buf, "#f7CF7Mode: #f%04X%s", 
+					k_modeColors[(int)mode],
+					k_modeNames[(int)mode]);
+	}
+	s_menu.getSubMenuEntry((size_t)SettingsMenuEntry::Mode) = buf;
+}
 void processUIState_SettingsMenu()
 {
 	Measurement::TrackingMode mode = s_measurement.getTrackingMode();
 
 	if (s_settingsMenuState == SettingsMenuState::Main)
 	{
-		refreshSubMenu();
+		refreshSettingsSubMenu();
 		SettingsMenuEntry selection = (SettingsMenuEntry)s_menu.process(s_knob);
 		if (selection == SettingsMenuEntry::Back)
 		{
 			s_uiState = UIState::Main;
 			s_menu.popSubMenu();
 		}
-		// else if (selection == SettingsMenuEntry::Target)
-		// {
-			// s_targetCurrent_mA = s_measurement.getTargetCurrent() * 1000.f;
-			// s_targetPower_mW = s_measurement.getTargetPower() * 1000.f;
-			// s_targetResistance_mO = s_measurement.getTargetResistance() * 1000.f;
-
-			// s_settingsMenuState = SettingsMenuState::SetTarget;
-		// }
 		else if (selection == SettingsMenuEntry::_4Wire)
 		{
 			s_measurement.set4WireEnabled(!s_measurement.is4WireEnabled());
@@ -283,55 +335,57 @@ void processUIState_SettingsMenu()
 			stopProgram();
 		}
 	}
-	// else if (s_settingsMenuState == SettingsMenuState::SetTarget)
-	// {
-	// 	int knobDelta = s_knob.encoderDeltaAcc();
-	// 	if (mode == Measurement::TrackingMode::CC)
-	// 	{
-	// 		s_targetCurrent_mA += knobDelta;
-	// 		s_targetCurrent_mA = std::max(std::min(s_targetCurrent_mA, int32_t(Measurement::k_maxCurrent * 1000.f)), 0);
-	// 	}
-	// 	else if (mode == Measurement::TrackingMode::CP)
-	// 	{
-	// 		s_targetPower_mW += knobDelta;
-	// 		s_targetPower_mW = std::max(std::min(s_targetPower_mW, int32_t(Measurement::k_maxPower * 1000.f)), 0);
-	// 	}
-	// 	else if (mode == Measurement::TrackingMode::CR)
-	// 	{
-	// 		s_targetResistance_mO += knobDelta;
-	// 		s_targetResistance_mO = std::max(std::min(s_targetResistance_mO, int32_t(Measurement::k_maxResistance * 1000.f)), int32_t(Measurement::k_minResistance * 1000.f));
-	// 	}
-	// 	refreshSubMenu();
+}
 
-	// 	if (s_knob.buttonState() == RotaryEncoder::ButtonState::Released)
-	// 	{
-	// 		if (mode == Measurement::TrackingMode::CC)
-	// 		{
-	// 			s_measurement.setTargetCurrent(s_targetCurrent_mA / 1000.f);
-	// 		}
-	// 		else if (mode == Measurement::TrackingMode::CP)
-	// 		{
-	// 			s_measurement.setTargetPower(s_targetPower_mW / 1000.f);
-	// 		}
-	// 		else if (mode == Measurement::TrackingMode::CR)
-	// 		{
-	// 			s_measurement.setTargetResistance(s_targetResistance_mO / 1000.f);
-	// 		}
-	// 		s_settingsMenuState = SettingsMenuState::Main;
-	// 	}
-	// }
-	// else if (s_settingsMenuState == SettingsMenuState::SetFan)
-	// {
-	// 	int knobDelta = s_knob.encoderDeltaAcc();
-	// 	s_fan += knobDelta / 100.f;
-	// 	s_fan = std::max(std::min(s_fan, 1.f), 0.f);
-	// 	s_measurement.setFan(s_fan);
-	// 	refreshSubMenu();
-	// 	if (s_knob.buttonState() == RotaryEncoder::ButtonState::Released)
-	// 	{
-	// 		s_settingsMenuState = SettingsMenuState::Main;
-	// 	}
-	// }
+static void refreshGraphSubMenu()
+{
+	char buf[64];
+
+	Measurement::TrackingMode mode = s_measurement.getTrackingMode();
+
+	sprintf(buf, "#f7CF7Show Voltage: %s", s_graphWidget.isPlotVisible(s_voltagePlot) ? "Yes" : "No");
+	s_menu.getSubMenuEntry((size_t)GraphMenuEntry::ShowVoltage) = buf;
+	sprintf(buf, "#f7CF7Show Current: %s", s_graphWidget.isPlotVisible(s_currentPlot) ? "Yes" : "No");
+	s_menu.getSubMenuEntry((size_t)GraphMenuEntry::ShowCurrent) = buf;
+	sprintf(buf, "#f7CF7Show Power: %s", s_graphWidget.isPlotVisible(s_powerPlot) ? "Yes" : "No");
+	s_menu.getSubMenuEntry((size_t)GraphMenuEntry::ShowPower) = buf;
+	sprintf(buf, "#f7CF7Show Resistance: %s", s_graphWidget.isPlotVisible(s_resistancePlot) ? "Yes" : "No");
+	s_menu.getSubMenuEntry((size_t)GraphMenuEntry::ShowResistance) = buf;
+}
+void processUIState_GraphMenu()
+{
+	Measurement::TrackingMode mode = s_measurement.getTrackingMode();
+
+	if (s_graphMenuState == GraphMenuState::Main)
+	{
+		refreshGraphSubMenu();
+		GraphMenuEntry selection = (GraphMenuEntry)s_menu.process(s_knob);
+		if (selection == GraphMenuEntry::Back)
+		{
+			s_uiState = UIState::Main;
+			s_menu.popSubMenu();
+		}
+		else if (selection == GraphMenuEntry::Reset)
+		{
+			s_graphWidget.clear();
+		}
+		else if (selection == GraphMenuEntry::ShowVoltage)
+		{
+			s_graphWidget.setPlotVisible(s_voltagePlot, !s_graphWidget.isPlotVisible(s_voltagePlot));
+		}
+		else if (selection == GraphMenuEntry::ShowCurrent)
+		{
+			s_graphWidget.setPlotVisible(s_currentPlot, !s_graphWidget.isPlotVisible(s_currentPlot));
+		}
+		else if (selection == GraphMenuEntry::ShowPower)
+		{
+			s_graphWidget.setPlotVisible(s_powerPlot, !s_graphWidget.isPlotVisible(s_powerPlot));
+		}
+		else if (selection == GraphMenuEntry::ShowResistance)
+		{
+			s_graphWidget.setPlotVisible(s_resistancePlot, !s_graphWidget.isPlotVisible(s_resistancePlot));
+		}
+	}
 }
 
 void processMeasurementState()
@@ -341,15 +395,6 @@ void processMeasurementState()
 	if (s_button.state() == Button::State::RELEASED)
 	{
 		s_measurement.setLoadEnabled(!s_measurement.isLoadEnabled());
-	}
-
-	if (s_uiState == UIState::Main)
-	{
-		processUIState_Main();
-	}
-	else if (s_uiState == UIState::SettingsMenu)
-	{
-		processUIState_SettingsMenu();
 	}
 
 	//Mode
@@ -374,12 +419,13 @@ void processMeasurementState()
 	if (mode == Measurement::TrackingMode::CC)
 	{
 		int16_t border = 3;
-		Widget::Position p = s_currentWidget.getPosition(Widget::Anchor::TopLeft);
-		s_canvas.fillRoundRect(p.x - border, p.y - border, 1000, s_currentWidget.getHeight() + border*2, border, k_currentColor);
+		Widget::Position tl = s_currentWidget.getPosition(Widget::Anchor::TopLeft).move(-border, -border);
+		Widget::Position br = s_currentWidget.getPosition(Widget::Anchor::BottomRight).move(border, border);
+		s_canvas.fillRoundRect(tl.x, tl.y, s_canvas.width() - tl.x, br.y - tl.y, border, k_currentColor);
 		s_currentWidget.setTextColor(0x0);
 		setUnitValue(s_targetWidget, s_measurement.getTargetCurrent(), 3, 99.f, 0, 999.999f, "A");
 		trackedColor = k_currentColor;
-		trackedBorderY = p.y;
+		trackedBorderY = tl.y;
 	}
 	else
 	{
@@ -392,12 +438,13 @@ void processMeasurementState()
 	if (mode == Measurement::TrackingMode::CP)
 	{
 		int16_t border = 3;
-		Widget::Position p = s_powerWidget.getPosition(Widget::Anchor::TopLeft);
-		s_canvas.fillRoundRect(p.x - border, p.y - border, 1000, s_powerWidget.getHeight() + border*2, border, k_powerColor);
+		Widget::Position tl = s_powerWidget.getPosition(Widget::Anchor::TopLeft).move(-border, -border);
+		Widget::Position br = s_powerWidget.getPosition(Widget::Anchor::BottomRight).move(border, border);
+		s_canvas.fillRoundRect(tl.x, tl.y, s_canvas.width() - tl.x, br.y - tl.y, border, k_powerColor);
 		s_powerWidget.setTextColor(0x0);
 		setUnitValue(s_targetWidget, s_measurement.getTargetPower(), 3, 999.999f, 0, 999.999f, "W");
 		trackedColor = k_powerColor;
-		trackedBorderY = p.y;
+		trackedBorderY = tl.y;
 	}
 	else
 	{
@@ -410,12 +457,13 @@ void processMeasurementState()
 	if (mode == Measurement::TrackingMode::CR)
 	{
 		int16_t border = 3;
-		Widget::Position p = s_resistanceWidget.getPosition(Widget::Anchor::TopLeft);
-		s_canvas.fillRoundRect(p.x - border, p.y - border, 1000, s_resistanceWidget.getHeight() + border*2, border, k_resistanceColor);
+		Widget::Position tl = s_resistanceWidget.getPosition(Widget::Anchor::TopLeft).move(-border, -border);
+		Widget::Position br = s_resistanceWidget.getPosition(Widget::Anchor::BottomRight).move(border, border);
+		s_canvas.fillRoundRect(tl.x, tl.y, s_canvas.width() - tl.x, br.y - tl.y, border, k_resistanceColor);
 		s_resistanceWidget.setTextColor(0x0);
 		setUnitValue(s_targetWidget, s_measurement.getTargetResistance(), 3, 999.999f, 0, 999.999f, "{");
 		trackedColor = k_resistanceColor;
-		trackedBorderY = p.y;
+		trackedBorderY = tl.y;
 	}
 	else
 	{
@@ -438,8 +486,9 @@ void processMeasurementState()
 	if (s_measurement.isLoadEnabled())
 	{
 		int16_t border = 3;
-		Widget::Position p = s_timerWidget.getPosition(Widget::Anchor::TopLeft);
-		s_canvas.fillRoundRect(p.x - border, p.y - border, s_timerWidget.getWidth() + border*2, s_timerWidget.getHeight() + border*2, border, k_timerColor);
+		Widget::Position tl = s_timerWidget.getPosition(Widget::Anchor::TopLeft).move(-border, -border);
+		Widget::Position br = s_timerWidget.getPosition(Widget::Anchor::BottomRight).move(border, border);
+		s_canvas.fillRoundRect(tl.x, tl.y, br.x - tl.x, br.y - tl.y, border, k_timerColor);
 		s_timerWidget.setTextColor(0x0);
 	}
 	else
@@ -458,10 +507,10 @@ void processMeasurementState()
 
 	{
 		int16_t border = 3;
-		Widget::Position tlp = s_targetIconWidget.getPosition(Widget::Anchor::TopLeft);
-		Widget::Position blp = s_targetWidget.getPosition(Widget::Anchor::BottomLeft);
-		s_canvas.fillRoundRect(tlp.x - border, tlp.y - border, 1000, blp.y - tlp.y + border*2, border, trackedColor);
-		s_canvas.fillRect(s_canvas.width() - 10, trackedBorderY, 1000, blp.y - trackedBorderY, trackedColor);
+		Widget::Position tl = s_targetIconWidget.getPosition(Widget::Anchor::TopLeft).move(-border, -border);
+		Widget::Position br = s_targetWidget.getPosition(Widget::Anchor::BottomLeft).move(border, border);
+		s_canvas.fillRoundRect(tl.x, tl.y, s_canvas.width() - tl.x, br.y - tl.y, border, trackedColor);
+		s_canvas.fillRect(s_canvas.width() - 10, trackedBorderY + border, 1000, br.y - trackedBorderY - border, trackedColor);
 	}
 	s_targetWidget.render();
 	s_targetIconWidget.setPosition(s_targetWidget.getPosition(Widget::Anchor::CenterLeft).move(-2, 0), Widget::Anchor::CenterRight);
@@ -521,19 +570,24 @@ void processMeasurementState()
 		s_graphWidget.render();
 	}
 
+	if (s_uiState == UIState::Main)
+	{
+		processUIState_Main();
+	}
+	else if (s_uiState == UIState::SettingsMenu)
+	{
+		processUIState_SettingsMenu();
+	}
+	else if (s_uiState == UIState::GraphMenu)
+	{
+		processUIState_GraphMenu();
+	}
+	else if (s_uiState == UIState::SetTarget)
+	{
+		processUIState_SetTarget();
+	}
+
 	s_menu.render(s_canvas, 0);
-	if (s_uiState == UIState::SetTimerLimit)
-	{
-		s_durationLimitWidget.process(s_knob);
-		s_durationLimitWidget.render();
-	}
-	if (s_uiState == UIState::SetVoltageLimit ||
-		s_uiState == UIState::SetEnergyLimit ||
-		s_uiState == UIState::SetChargeLimit)
-	{
-		s_durationLimitWidget.process(s_knob);
-		s_durationLimitWidget.render();
-	}
 
 	updateProgram();
 
@@ -641,6 +695,16 @@ void initUI()
 	s_currentPlot = s_graphWidget.addPlot("A", k_currentColor, 0.1f);
 	s_powerPlot = s_graphWidget.addPlot("W", k_powerColor, 0.1f);
 	s_resistancePlot = s_graphWidget.addPlot("{", k_resistanceColor, 0.1f);
+
+	s_valueEditWidget.setUseContentHeight(true);
+	s_valueEditWidget.setMainFont(&SansSerif_bold_28);
+	s_valueEditWidget.setSuffixFont(&SansSerif_bold_10);
+	s_valueEditWidget.setDecimals(3);
+	s_valueEditWidget.setSelectedBackgroundColor(0x0);
+	s_valueEditWidget.setSelectedTextColor(0xFFFF);
+	s_valueEditWidget.setEditedBackgroundColor(0x0);
+	s_valueEditWidget.setEditedTextColor(0xE8EC);
+	s_valueEditWidget.setTextColor(0x0);
 }
 
 void initMeasurementState()

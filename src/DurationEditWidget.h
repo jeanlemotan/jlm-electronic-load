@@ -6,7 +6,7 @@
 class DurationEditWidget : public EditWidget
 {
 public:
-	DurationEditWidget(Adafruit_GFX& gfx, const char* suffix);
+	DurationEditWidget(JLMBackBuffer& gfx, const char* suffix);
 
     void setRange(Clock::duration min, Clock::duration max);
 

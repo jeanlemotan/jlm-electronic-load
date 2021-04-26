@@ -104,6 +104,9 @@ WIDTH(w), HEIGHT(h)
 /**************************************************************************/
 void Adafruit_GFX::writeLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1,
         uint16_t color) {
+#if defined(ESP8266)
+    yield();
+#endif
     int16_t steep = abs(y1 - y0) > abs(x1 - x0);
     if (steep) {
         _swap_int16_t(x0, y0);
@@ -345,6 +348,9 @@ void Adafruit_GFX::drawLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1,
 /**************************************************************************/
 void Adafruit_GFX::drawCircle(int16_t x0, int16_t y0, int16_t r,
         uint16_t color) {
+#if defined(ESP8266)
+    yield();
+#endif
     int16_t f = 1 - r;
     int16_t ddF_x = 1;
     int16_t ddF_y = -2 * r;
@@ -658,8 +664,8 @@ void Adafruit_GFX::fillTriangle(int16_t x0, int16_t y0,
 
     // For lower part of triangle, find scanline crossings for segments
     // 0-2 and 1-2.  This loop is skipped if y1=y2.
-    sa = dx12 * (y - y1);
-    sb = dx02 * (y - y0);
+    sa = (int32_t)dx12 * (y - y1);
+    sb = (int32_t)dx02 * (y - y0);
     for(; y<=y2; y++) {
         a   = x1 + sa / dy12;
         b   = x0 + sb / dy02;
@@ -684,7 +690,7 @@ void Adafruit_GFX::fillTriangle(int16_t x0, int16_t y0,
     @param    y   Top left corner y coordinate
     @param    bitmap  byte array with monochrome bitmap
     @param    w   Width of bitmap in pixels
-    @param    h   Hieght of bitmap in pixels
+    @param    h   Height of bitmap in pixels
     @param    color 16-bit 5-6-5 Color to draw with
 */
 /**************************************************************************/
@@ -712,7 +718,7 @@ void Adafruit_GFX::drawBitmap(int16_t x, int16_t y,
     @param    y   Top left corner y coordinate
     @param    bitmap  byte array with monochrome bitmap
     @param    w   Width of bitmap in pixels
-    @param    h   Hieght of bitmap in pixels
+    @param    h   Height of bitmap in pixels
     @param    color 16-bit 5-6-5 Color to draw pixels with
     @param    bg 16-bit 5-6-5 Color to draw background with
 */
@@ -742,7 +748,7 @@ void Adafruit_GFX::drawBitmap(int16_t x, int16_t y,
     @param    y   Top left corner y coordinate
     @param    bitmap  byte array with monochrome bitmap
     @param    w   Width of bitmap in pixels
-    @param    h   Hieght of bitmap in pixels
+    @param    h   Height of bitmap in pixels
     @param    color 16-bit 5-6-5 Color to draw with
 */
 /**************************************************************************/
@@ -770,7 +776,7 @@ void Adafruit_GFX::drawBitmap(int16_t x, int16_t y,
     @param    y   Top left corner y coordinate
     @param    bitmap  byte array with monochrome bitmap
     @param    w   Width of bitmap in pixels
-    @param    h   Hieght of bitmap in pixels
+    @param    h   Height of bitmap in pixels
     @param    color 16-bit 5-6-5 Color to draw pixels with
     @param    bg 16-bit 5-6-5 Color to draw background with
 */
@@ -803,7 +809,7 @@ void Adafruit_GFX::drawBitmap(int16_t x, int16_t y,
     @param    y   Top left corner y coordinate
     @param    bitmap  byte array with monochrome bitmap
     @param    w   Width of bitmap in pixels
-    @param    h   Hieght of bitmap in pixels
+    @param    h   Height of bitmap in pixels
     @param    color 16-bit 5-6-5 Color to draw pixels with
 */
 /**************************************************************************/
@@ -835,7 +841,7 @@ void Adafruit_GFX::drawXBitmap(int16_t x, int16_t y,
     @param    y   Top left corner y coordinate
     @param    bitmap  byte array with grayscale bitmap
     @param    w   Width of bitmap in pixels
-    @param    h   Hieght of bitmap in pixels
+    @param    h   Height of bitmap in pixels
 */
 /**************************************************************************/
 void Adafruit_GFX::drawGrayscaleBitmap(int16_t x, int16_t y,
@@ -857,7 +863,7 @@ void Adafruit_GFX::drawGrayscaleBitmap(int16_t x, int16_t y,
     @param    y   Top left corner y coordinate
     @param    bitmap  byte array with grayscale bitmap
     @param    w   Width of bitmap in pixels
-    @param    h   Hieght of bitmap in pixels
+    @param    h   Height of bitmap in pixels
 */
 /**************************************************************************/
 void Adafruit_GFX::drawGrayscaleBitmap(int16_t x, int16_t y,
@@ -1930,8 +1936,8 @@ void GFXcanvas1::fillScreen(uint16_t color) {
 /**************************************************************************/
 GFXcanvas8::GFXcanvas8(uint16_t w, uint16_t h) : Adafruit_GFX(w, h) {
     uint32_t bytes = w * h;
-    if ((_buffer = (uint8_t *)malloc(bytes))) {
-        memset(_buffer, 0, bytes);
+    if((buffer = (uint8_t *)malloc(bytes))) {
+        memset(buffer, 0, bytes);
     }
 }
 
@@ -1941,7 +1947,7 @@ GFXcanvas8::GFXcanvas8(uint16_t w, uint16_t h) : Adafruit_GFX(w, h) {
 */
 /**************************************************************************/
 GFXcanvas8::~GFXcanvas8(void) {
-    if (_buffer) free(_buffer);
+    if(buffer) free(buffer);
 }
 
 
@@ -1952,20 +1958,7 @@ GFXcanvas8::~GFXcanvas8(void) {
 */
 /**************************************************************************/
 uint8_t* GFXcanvas8::getBuffer(void) {
-    return _buffer;
-}
-
-int16_t GFXcanvas8::getDirtyX() const {
-    return max(_dirtyx1, int16_t(0));
-}
-int16_t GFXcanvas8::getDirtyY() const {
-    return max(_dirtyy1, int16_t(0));
-}
-int16_t GFXcanvas8::getDirtyWidth() const {
-    return max(_dirtyx2 - _dirtyx1, 0);
-}
-int16_t GFXcanvas8::getDirtyHeight() const {
-    return max(_dirtyy2 - _dirtyy1, 0);
+    return buffer;
 }
 
 /**************************************************************************/
@@ -1977,30 +1970,29 @@ int16_t GFXcanvas8::getDirtyHeight() const {
 */
 /**************************************************************************/
 void GFXcanvas8::drawPixel(int16_t x, int16_t y, uint16_t color) {
-    if((x < 0) || (y < 0) || (x >= _width) || (y >= _height)) return;
+    if(buffer) {
+        if((x < 0) || (y < 0) || (x >= _width) || (y >= _height)) return;
 
-    int16_t t;
-    switch(rotation) {
-        case 1:
-            t = x;
-            x = WIDTH  - 1 - y;
-            y = t;
-            break;
-        case 2:
-            x = WIDTH  - 1 - x;
-            y = HEIGHT - 1 - y;
-            break;
-        case 3:
-            t = x;
-            x = y;
-            y = HEIGHT - 1 - t;
-            break;
+        int16_t t;
+        switch(rotation) {
+            case 1:
+                t = x;
+                x = WIDTH  - 1 - y;
+                y = t;
+                break;
+            case 2:
+                x = WIDTH  - 1 - x;
+                y = HEIGHT - 1 - y;
+                break;
+            case 3:
+                t = x;
+                x = y;
+                y = HEIGHT - 1 - t;
+                break;
+        }
+
+        buffer[x + y * WIDTH] = color;
     }
-    _buffer[x + y * WIDTH] = color;
-    _dirtyx1 = min(_dirtyx1, x);
-    _dirtyx2 = max(_dirtyx2, x);
-    _dirtyy1 = min(_dirtyy1, y);
-    _dirtyy2 = max(_dirtyy2, y);
 }
 
 /**************************************************************************/
@@ -2010,7 +2002,9 @@ void GFXcanvas8::drawPixel(int16_t x, int16_t y, uint16_t color) {
 */
 /**************************************************************************/
 void GFXcanvas8::fillScreen(uint16_t color) {
-    memset(_buffer, color, WIDTH * HEIGHT);
+    if(buffer) {
+        memset(buffer, color, WIDTH * HEIGHT);
+    }
 }
 
 void GFXcanvas8::writeFastHLine(int16_t x, int16_t y,
@@ -2045,11 +2039,7 @@ void GFXcanvas8::writeFastHLine(int16_t x, int16_t y,
             break;
     }
 
-    memset(_buffer + y * WIDTH + x, color, w);
-    _dirtyx1 = min(_dirtyx1, x);
-    _dirtyx2 = max(_dirtyx2, int16_t(x + w));
-    _dirtyy1 = min(_dirtyy1, y);
-    _dirtyy2 = max(_dirtyy2, y);
+    memset(buffer + y * WIDTH + x, color, w);
 }
 
 /**************************************************************************/

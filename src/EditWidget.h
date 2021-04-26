@@ -8,7 +8,7 @@
 class EditWidget : public WidgetBase
 {
 public:
-	EditWidget(Adafruit_GFX& gfx, const char* string, const char* suffix);
+	EditWidget(JLMBackBuffer& gfx, const char* string, const char* suffix);
 
 	void setMainFont(const GFXfont* font);
 	void setSuffixFont(const GFXfont* font);

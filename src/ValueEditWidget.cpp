@@ -2,7 +2,7 @@
 #include "icons.h"
 
 
-ValueEditWidget::ValueEditWidget(Adafruit_GFX& gfx, const char* suffix)
+ValueEditWidget::ValueEditWidget(JLMBackBuffer& gfx, const char* suffix)
     : EditWidget(gfx, nullptr, suffix)
 {
     _setValue(m_value);
@@ -22,6 +22,11 @@ void ValueEditWidget::setDecimals(uint8_t decimals)
 
 	m_decimals = decimals;
     _setValue(m_value);
+}
+int16_t ValueEditWidget::getWidth() const
+{
+    int16_t w = EditWidget::getWidth();
+    return w + k_imgOk.width + k_imgCancel.width + 4*2;
 }
 void ValueEditWidget::setValue(float value)
 {
@@ -125,7 +130,7 @@ void ValueEditWidget::render()
     EditWidget::render();
 
     const std::string& v = getString();
-    Position p = getPosition(Anchor::BottomRight).move(4, 0);
+    Position p = getPosition(Anchor::BottomLeft).move(EditWidget::getWidth() + 4, 0);
     int32_t crtIndex = getSelectedIndex();
     if (crtIndex == v.size())
     {

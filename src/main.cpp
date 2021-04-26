@@ -1,7 +1,7 @@
 #include "Adafruit_GFX.h"
 #include "Adafruit_SSD1351.h"
 #include "Adafruit_ILI9341.h"
-#include "DeltaBitmap.h"
+#include "JLMBackBuffer.h"
 #include "AiEsp32RotaryEncoder.h"
 #include "Button.h"
 #include "esp_spiffs.h"
@@ -29,7 +29,7 @@
 
 static Adafruit_ILI9341 s_display = Adafruit_ILI9341(5, 4);
 //static Adafruit_SSD1351 s_display(128, 128, &SPI, 5, 4, 2);
-DeltaBitmap s_canvas(320, 240, 3, 3);
+JLMBackBuffer s_canvas(320, 240, 3, 3);
 int16_t s_windowY = 0;
 
 //w, h, cs, dc, mosi, clk, rst
@@ -219,7 +219,7 @@ void loop()
   printf("\nD: %lu", millis() - lastTP);
   lastTP = millis();
 
-  s_canvas.fillScreen(0);
+  //s_canvas.fillScreen(0);
 
   s_canvas.setFont(&SansSerif_bold_10);
   s_canvas.fillRect(0, 0, s_canvas.width(), s_windowY, 0xFFFF);
@@ -233,7 +233,7 @@ void loop()
   {
     Touchscreen::Point point = s_touchscreen.getPoint();
     //printf("\n%d, %d, %d", (int)point.x, (int)point.y, (int)point.z);
-    s_canvas.fillCircle(point.x / 4096.f * 320, point.y / 4096.f * 240, point.z / 4096.f * 50 + 50, 0xFFFF);
+    s_canvas.fillCircle(point.x / 4096.f * 320, point.y / 4096.f * 240, point.z / 4096.f * 50 + 10, 0xFFFF);
   }
 
   processSDCard();

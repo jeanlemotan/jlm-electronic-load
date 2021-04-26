@@ -1,9 +1,9 @@
 #include "State.h"
 #include "CalibrationState.h"
 #include "MeasurementState.h"
-#include "DeltaBitmap.h"
+#include "JLMBackBuffer.h"
 
-extern DeltaBitmap s_canvas;
+extern JLMBackBuffer s_canvas;
 
 static State s_state = State::Measurement;
 static bool s_firstTime = true;

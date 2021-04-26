@@ -1,6 +1,6 @@
 #include "EditWidget.h"
 
-EditWidget::EditWidget(Adafruit_GFX& gfx, const char* string, const char* suffix)
+EditWidget::EditWidget(JLMBackBuffer& gfx, const char* string, const char* suffix)
 	: WidgetBase(gfx)
 {
 	m_string = string ? string : "";
@@ -218,7 +218,7 @@ void EditWidget::updateGeometry() const
 	{
 		m_h = m_mainFont->yAdvance;
 	}
-	if (m_suffix[0] != '\0')
+	if (!m_suffix.empty())
 	{
 		m_gfx.setFont(m_suffixFont);
 		m_gfx.getTextBounds(m_suffix.c_str(), 0, 0, &x, &y, &w, &h);

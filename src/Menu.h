@@ -4,7 +4,7 @@
 #include <string>
 #include "RotaryEncoder.h"
 
-class DeltaBitmap;
+class JLMBackBuffer;
 
 class Menu
 {
@@ -41,7 +41,7 @@ public:
 
     size_t process(RotaryEncoder& knob);
 
-    void render(DeltaBitmap& display, size_t maxEntries);
+    void render(JLMBackBuffer& display, size_t maxEntries);
 
 private:
     Entry m_emptyEntry;
@@ -63,5 +63,5 @@ private:
     float m_targetScreenX = 0;
     float m_crtX = 0;
 
-    void render(DeltaBitmap& display, SubMenu& data, size_t maxEntries);
+    void render(JLMBackBuffer& display, SubMenu& data, size_t maxEntries);
 };

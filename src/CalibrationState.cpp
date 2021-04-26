@@ -3,12 +3,12 @@
 #include "ValueWidget.h"
 #include "LabelWidget.h"
 #include "Settings.h"
-#include "DeltaBitmap.h"
+#include "JLMBackBuffer.h"
 #include "AiEsp32RotaryEncoder.h"
 #include "Menu.h"
 #include "State.h"
 
-extern DeltaBitmap s_canvas;
+extern JLMBackBuffer s_canvas;
 extern int16_t s_windowY;
 extern AiEsp32RotaryEncoder s_knob;
 extern Settings s_settings;

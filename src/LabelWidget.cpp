@@ -1,6 +1,6 @@
 #include "LabelWidget.h"
 
-LabelWidget::LabelWidget(Adafruit_GFX& gfx, const char* value)
+LabelWidget::LabelWidget(JLMBackBuffer& gfx, const char* value)
 	: WidgetBase(gfx)
 {
 	m_value = value ? value : "";

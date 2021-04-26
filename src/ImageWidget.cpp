@@ -1,6 +1,6 @@
 #include "ImageWidget.h"
 
-ImageWidget::ImageWidget(Adafruit_GFX& gfx, const Image* image, const Image* highlighted, const Image* selected)
+ImageWidget::ImageWidget(JLMBackBuffer& gfx, const Image* image, const Image* highlighted, const Image* selected)
     : WidgetBase(gfx)
     , m_image(image)
     , m_highlightedImage(highlighted)

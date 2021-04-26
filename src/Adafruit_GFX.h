@@ -18,7 +18,7 @@ class Adafruit_GFX : public Print {
 
   // This MUST be defined by the subclass:
   virtual void drawPixel(int16_t x, int16_t y, uint16_t color) = 0;    ///< Virtual drawPixel() function to draw to the screen/framebuffer/etc, must be overridden in subclass. @param x X coordinate.  @param y Y coordinate. @param color 16-bit pixel color. 
-  
+
   // TRANSACTION API / CORE DRAW API
   // These MAY be overridden by the subclass to provide device-specific
   // optimized code.  Otherwise 'generic' versions are used.
@@ -223,18 +223,9 @@ class GFXcanvas8 : public Adafruit_GFX {
            fillScreen(uint16_t color),
            writeFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color);
 
-  int16_t getDirtyX() const;
-  int16_t getDirtyY() const;
-  int16_t getDirtyWidth() const;
-  int16_t getDirtyHeight() const;
-
-  uint8_t* getBuffer(void);
+  uint8_t *getBuffer(void);
  private:
-  uint8_t* _buffer;
-  int16_t _dirtyx1 = 9999;
-  int16_t _dirtyy1 = 9999;
-  int16_t _dirtyx2 = -9999;
-  int16_t _dirtyy2 = -9999;
+  uint8_t *buffer;
 };
 
 

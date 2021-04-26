@@ -6,7 +6,7 @@
 class ValueWidget : public WidgetBase
 {
 public:
-	ValueWidget(Adafruit_GFX& gfx, float value, const char* suffix);
+	ValueWidget(JLMBackBuffer& gfx, float value, const char* suffix);
 	void setValueFont(const GFXfont* font);
 	void setSuffixFont(const GFXfont* font);
 	void setSuffix(const char* suffix);

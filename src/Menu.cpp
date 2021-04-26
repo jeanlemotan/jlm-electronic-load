@@ -1,5 +1,5 @@
 #include "Menu.h"
-#include "DeltaBitmap.h"
+#include "JLMBackBuffer.h"
 #include <algorithm>
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -118,7 +118,7 @@ size_t Menu::process(RotaryEncoder& knob)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Menu::render(DeltaBitmap& display, size_t maxEntries)
+void Menu::render(JLMBackBuffer& display, size_t maxEntries)
 {
     if (m_subMenus.empty())
     {
@@ -149,7 +149,7 @@ void Menu::render(DeltaBitmap& display, size_t maxEntries)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Menu::render(DeltaBitmap& display, SubMenu& subMenu, size_t maxEntries)
+void Menu::render(JLMBackBuffer& display, SubMenu& subMenu, size_t maxEntries)
 {
     int16_t parentX = static_cast<int16_t>(m_crtX + 0.5f);
     int16_t x = subMenu.page * display.width() - parentX;

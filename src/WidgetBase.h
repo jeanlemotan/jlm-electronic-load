@@ -1,12 +1,12 @@
 #pragma once
 
-#include "Adafruit_GFX.h"
+#include "JLMBackBuffer.h"
 #include "Widget.h"
 
 class WidgetBase : public Widget
 {
 public:
-	WidgetBase(Adafruit_GFX& gfx);
+	WidgetBase(JLMBackBuffer& gfx);
 
 	void setPosition(const Position& position, Anchor anchor = Anchor::TopLeft) override;
 	Position getPosition(Anchor anchor = Anchor::TopLeft) const override;
@@ -19,7 +19,7 @@ public:
 protected:
 	Position computeBottomLeftPosition() const;
 
-	Adafruit_GFX& m_gfx;
+	JLMBackBuffer& m_gfx;
 	Position m_position;
 	Anchor m_anchor = Anchor::TopLeft;
 	bool m_isSelected = false;
